@@ -1,4 +1,8 @@
-# 🛡️ NixGuard Wazuh Agent Installer
+<p align="center">
+  <img src="nextechlabs_logo.jpeg" alt="Nextech Labs Logo" width="200"/>
+</p>
+
+# NixGuard Wazuh Agent Installer
 
 Enterprise-grade Wazuh agent setup script with enhanced security, auditing, and configuration management features.
 
@@ -149,3 +153,7 @@ NixGuard-Wazuh-Installer/
 ```
 
 ---
+
+<p align="center">
+  <strong>Made with ❤️ by MAPLEIZER</strong>
+</p>
