@@ -1,49 +1,75 @@
 #region PostInstall
 
 function Cleanup-TempFiles {
+    Export-ModuleMember -Function Cleanup-TempFiles
+
     Write-Log "Performing final cleanup..." -Level "INFO"
     
-    $tempFiles = @(
-        (Join-Path $env:TEMP "agent-automatic-setup-enterprise.ps1"),
-        (Join-Path $env:TEMP "wazuh-agent-$($using:WAZUH_VERSION).msi")
-    )
-    
-    $cleanedCount = 0
-    foreach ($file in $tempFiles) {
-        if (Test-Path $file) {
-            Remove-Item $file -Force -ErrorAction SilentlyContinue
-            $cleanedCount++
-        }
+    # Use a variable from the main script's scope for WAZUH_VERSION
+    $wazuhVersion = Get-Variable -Name WAZUH_VERSION -Scope 1 -ValueOnly
+    $installerFile = Join-Path $env:TEMP "wazuh-agent-$wazuhVersion.msi"
+
+    if (Test-Path $installerFile) {
+        Remove-Item $installerFile -Force -ErrorAction SilentlyContinue
+        Write-Log "Cleaned up temporary installer file: $installerFile" -Level "SUCCESS"
     }
-    
-    Write-Log "Cleaned up $cleanedCount temporary files" -Level "SUCCESS"
+}
+
+function Deploy-ActiveResponseScripts {
+    Export-ModuleMember -Function Deploy-ActiveResponseScripts
+
+    Write-Log "Deploying custom active response scripts..." -Level "INFO"
+
+    $scriptRoot = Get-Variable -Name PSScriptRoot -Scope 1 -ValueOnly
+    $sourceScriptPath = Join-Path $scriptRoot "remove-threat.py"
+    $destinationDir = "${env:ProgramFiles(x86)}\ossec-agent\active-response\bin"
+
+    if (-not (Test-Path $sourceScriptPath)) {
+        Write-Log "Source script 'remove-threat.py' not found at '$sourceScriptPath'. Skipping deployment." -Level "WARN"
+        return
+    }
+
+    if (-not (Test-Path $destinationDir)) {
+        Write-Log "Wazuh active response directory not found at '$destinationDir'. Skipping deployment." -Level "WARN"
+        return
+    }
+
+    try {
+        Copy-Item -Path $sourceScriptPath -Destination $destinationDir -Force
+        Write-Log "Successfully copied 'remove-threat.py' to '$destinationDir'." -Level "SUCCESS"
+    }
+    catch {
+        Write-Log "Failed to copy 'remove-threat.py'. Error: $($_.Exception.Message)" -Level "ERROR"
+    }
 }
 
 function Show-Summary {
-    $setupDuration = (Get-Date) - $script:startTime
-    
+    Export-ModuleMember -Function Show-Summary
+
+    param (
+        [datetime]$startTime,
+        [string]$agentName,
+        [string]$ipAddress,
+        [string]$groupLabel
+    )
+
+    $endTime = Get-Date
+    $duration = New-TimeSpan -Start $startTime -End $endTime
+
     Write-Host ""
     Write-Host "================================================================================" -ForegroundColor Green
-    Write-Host "                    NIX GUARD ENTERPRISE SETUP COMPLETED                        " -ForegroundColor Green
+    Write-Host "                         SETUP COMPLETED SUCCESSFULLY                           " -ForegroundColor Green
     Write-Host "================================================================================" -ForegroundColor Green
     Write-Host ""
-    
-    Write-Log "=== SETUP SUMMARY ===" -Level "SUCCESS"
-    Write-Log "User: $env:USERNAME on $env:COMPUTERNAME" -Level "INFO"
-    Write-Log "Agent Name: $($using:agentName)" -Level "INFO"
-    Write-Log "Manager IP: $($using:ipAddress)" -Level "INFO"
-    Write-Log "Group: $($using:groupLabel)" -Level "INFO"
-    Write-Log "Setup Duration: $([math]::Round($setupDuration.TotalMinutes, 2)) minutes" -Level "INFO"
-    Write-Log "Setup completed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -Level "SUCCESS"
-    
-    Write-Host ""
-    Write-Host "Next steps:" -ForegroundColor Cyan
-    Write-Host "* The Wazuh agent is now running and should appear in your dashboard" -ForegroundColor White
-    Write-Host "* Agent will automatically register with the manager" -ForegroundColor White
-    Write-Host "* Check the Wazuh web interface for agent status" -ForegroundColor White
+    Write-Log "Setup completed successfully." -Level "SUCCESS"
+
+    Write-Host "Summary:" -ForegroundColor Cyan
+    Write-Host "- Agent Name:    $agentName" -ForegroundColor White
+    Write-Host "- Manager IP:    $ipAddress" -ForegroundColor White
+    Write-Host "- Agent Group:   $groupLabel" -ForegroundColor White
+    Write-Host "- Total Time:    $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor White
+    Write-Host "- Log File:      $($global:LogPath)" -ForegroundColor White
     Write-Host ""
 }
-
-Export-ModuleMember -Function Cleanup-TempFiles, Show-Summary
 
 #endregion

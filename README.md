@@ -40,6 +40,11 @@ Enterprise-grade Wazuh agent setup script with enhanced security, auditing, and 
 - **Color-Coded Logging** - Provides clear, real-time feedback on the script's progress.
 - **Comprehensive Uninstaller** - A dedicated, modular script for removing all traces of the Wazuh agent.
 
+### 🛡️ **Automated Threat Response**
+- **Automatic Deployment** - The secure `remove-threat.py` active response script is automatically deployed to the agent during installation.
+- **Enhanced Security** - The script includes critical safety features, such as a whitelist of safe directories for file removal and a `--dry-run` mode for safe testing.
+- **Robust Error Handling** - Prevents crashes from malformed alerts and provides detailed logging.
+
 ## 🔧 Prerequisites
 
 - **Operating System**: Windows 10 or Windows Server 2016+
@@ -48,37 +53,22 @@ Enterprise-grade Wazuh agent setup script with enhanced security, auditing, and 
 - **Network**: Internet connectivity to download the Wazuh agent installer and connectivity to the Wazuh Manager IP.
 - **Disk Space**: Minimum 500MB of free disk space.
 
-## ⚡ How to Run
+## ⚡ Quick Start
 
-### **Installer: Using Manual Parameters**
+Run the following command in an **elevated (Administrator)** PowerShell session to download and execute the installer. Replace the placeholder parameters with your specific configuration.
 
 ```powershell
-# Open PowerShell as an Administrator
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+# Download and execute the script in one line
+$params = @{
+    ipAddress  = '192.168.1.100'
+    agentName  = 'WIN-AGENT-01'
+    groupLabel = 'windows_servers'
+}
 
-.\NixGuard-Wazuh-Installer.ps1 -ipAddress '192.168.1.100' -agentName 'WIN-AGENT-01' -groupLabel 'windows_servers'
+iwr https://raw.githubusercontent.com/MAPLEIZER/NixGuard-Wazuh-Installer/main/NixGuard-Wazuh-Installer.ps1 | iex; Start-NixGuardWazuhInstall @params
 ```
 
-### **Installer: Using a Configuration File**
-
-This is the recommended method for consistent deployments.
-
-1.  **Create a configuration file** (e.g., `config.json`):
-
-    ```json
-    {
-        "ipAddress": "192.168.1.100",
-        "agentName": "WIN-AGENT-02",
-        "groupLabel": "windows_workstations",
-        "WAZUH_VERSION": "4.7.0-1"
-    }
-    ```
-
-2.  **Run the installer**:
-
-    ```powershell
-    .\NixGuard-Wazuh-Installer.ps1 -ConfigFile '.\config.json'
-    ```
+> **Note:** For the one-liner to work, the main logic of the installer script would need to be wrapped in a function (e.g., `Start-NixGuardWazuhInstall`). This is a recommended practice for distributable scripts.
 
 ## ⚙️ Configuration
 
