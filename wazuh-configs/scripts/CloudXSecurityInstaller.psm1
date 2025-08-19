@@ -6,11 +6,11 @@
 
 # Import required modules
 $ModulePath = Split-Path -Parent $MyInvocation.MyCommand.Path
-Import-Module "$ModulePath\Modules\Logging.psm1" -Force
-Import-Module "$ModulePath\Modules\Utilities.psm1" -Force
-Import-Module "$ModulePath\Modules\WazuhOperations.psm1" -Force
-Import-Module "$ModulePath\Modules\PostInstall.psm1" -Force
-Import-Module "$ModulePath\Modules\Banner.psm1" -Force
+Import-Module "$ModulePath\Modules\Core\Logging.psm1" -Force
+Import-Module "$ModulePath\Modules\Core\Utilities.psm1" -Force
+Import-Module "$ModulePath\Modules\Installation\WazuhOperations.psm1" -Force
+Import-Module "$ModulePath\Modules\Installation\PostInstall.psm1" -Force
+Import-Module "$ModulePath\Modules\UI\Banner.psm1" -Force
 
 # Constants
 $WAZUH_VERSION = "4.9.1-1"
