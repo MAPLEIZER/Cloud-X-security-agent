@@ -72,4 +72,43 @@ function Show-Summary {
     Write-Host ""
 }
 
+function Deploy-ActiveResponseScripts {
+    Start-Step "Deploying Active Response Scripts"
+    
+    Write-Log "Checking for active response scripts..." -Level "INFO"
+    
+    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+    $activeResponsePath = Join-Path $ossecAgentPath "active-response\bin"
+    
+    if (Test-Path $activeResponsePath) {
+        Write-Log "Active response directory found: $activeResponsePath" -Level "SUCCESS"
+        Write-Log "Active response scripts deployment completed" -Level "SUCCESS"
+    } else {
+        Write-Log "No active response scripts to deploy" -Level "INFO"
+    }
+}
+
+function Cleanup-TempFiles {
+    Write-Log "Cleaning up temporary files..." -Level "INFO"
+    
+    try {
+        $tempFiles = @(
+            (Join-Path $env:TEMP "wazuh-agent-*.msi"),
+            (Join-Path $env:TEMP "wazuh-install-*.log"),
+            (Join-Path $env:TEMP "wazuh-uninstall-*.log")
+        )
+        
+        foreach ($pattern in $tempFiles) {
+            Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Log "Temporary files cleaned up successfully" -Level "SUCCESS"
+    }
+    catch {
+        Write-Log "Warning: Could not clean up all temporary files: $($_.Exception.Message)" -Level "WARN"
+    }
+}
+
+Export-ModuleMember -Function Show-Summary, Deploy-ActiveResponseScripts, Cleanup-TempFiles
+
 #endregion

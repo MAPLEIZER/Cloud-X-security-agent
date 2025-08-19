@@ -1,6 +1,6 @@
 #region WazuhOperations
 
-function Uninstall-WazuhAgent {
+function Uninstall-ExistingWazuhAgent {
     Start-Step "Uninstalling Existing Wazuh Agent (if any)"
 
     # Attempt to stop the service first to release file locks.
@@ -89,44 +89,126 @@ function Install-WazuhAgent {
     # Backup original config
     $backupPath = "$configPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     Copy-Item $configPath $backupPath -Force
-    Write-Log "Configuration backup created: $backupPath" -Level "SUCCESS"
     
-    # Cleanup installer
+    $installerPath = Join-Path $env:TEMP "wazuh-agent-$WAZUH_VERSION.msi"
+    if (Test-Path $installerPath) {
+        Remove-Item $installerPath -Force
+    }
+
+    while (Test-Path $configPath) {
+        Write-Log "Existing configuration detected. Removing..." -Level "WARN"
+        Remove-Item $configPath -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+
+    $maxRetries = 3
+    $retryCount = 0
+
+    do {
+        try {
+            Write-Log "Download attempt $($retryCount + 1) of $($maxRetries + 1)" -Level "INFO"
+            
+            Invoke-SecureDownload -Url $WAZUH_URL -OutputPath $installerPath -Description "Wazuh Agent installer"
+
+            Write-Log "Starting Wazuh agent installation..." -Level "INFO"
+            $logFile = Join-Path $env:TEMP "wazuh-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER=$ipAddress WAZUH_REGISTRATION_SERVER=$ipAddress WAZUH_AGENT_GROUP=$groupLabel WAZUH_AGENT_NAME=$agentName"
+            Write-Log "MSI command: msiexec.exe $installArgs" -Level "INFO"
+            Write-Log "MSI log file: $logFile" -Level "INFO"
+            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
+
+            if ($process.ExitCode -eq 0) {
+                Write-Log "Wazuh agent installed successfully" -Level "SUCCESS"
+                break
+            } else {
+                Write-Log "Reading MSI log file for error details..." -Level "INFO"
+                if (Test-Path $logFile) {
+                    try {
+                        $logContent = Get-Content $logFile -Tail 20 -ErrorAction SilentlyContinue
+                        if ($logContent) {
+                            Write-Log "Last 20 lines of MSI log:" -Level "ERROR"
+                            $logContent | ForEach-Object { Write-Log $_ -Level "ERROR" }
+                        }
+                    }
+                    catch {
+                        Write-Log "Could not read MSI log file" -Level "WARN"
+                    }
+                }
+                
+                throw "Installer failed with exit code: $($process.ExitCode). Check MSI log: $logFile"
+            }
+        }
+        catch {
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                Write-Log "Installation failed: $($_.Exception.Message). Retrying..." -Level "WARN"
+                Start-Sleep -Seconds 10
+            } else {
+                Write-Log "Installation failed after $($maxRetries + 1) attempts: $($_.Exception.Message)" -Level "ERROR"
+                throw
+            }
+        }
+    } while ($retryCount -le $maxRetries)
+
+    # Cleanup
     Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
 }
 
 function Set-WazuhAgentConfiguration {
-    param (
+    param(
         [string]$ipAddress,
         [string]$agentName,
         [string]$groupLabel
     )
-
-    Start-Step "Configuring Wazuh Agent from template"
-    Write-Log "Configuring agent '$agentName' for manager '$ipAddress' in group '$groupLabel'" -Level "INFO"
-
-    # The main script sets a script-level variable PSScriptRoot which we can access from the module.
-    $scriptRoot = Get-Variable -Name PSScriptRoot -Scope 1 -ValueOnly
-    $templatePath = Join-Path $scriptRoot "agent-template.conf"
-    $agentConfPath = "${env:ProgramFiles(x86)}\ossec-agent\ossec.conf"
-
-    if (-not (Test-Path $templatePath)) {
-        throw "Agent configuration template not found at: $templatePath"
+    
+    Start-Step "Configuring Wazuh Agent"
+    
+    # Determine the correct IP based on group
+    $configIP = if ($groupLabel -eq "Personal") {
+        "192.168.100.37"  # Internal network IP for Personal group
+    } else {
+        $ipAddress  # Use provided public IP for other groups
     }
+    
+    Write-Log "Group: $groupLabel - Using IP: $configIP" -Level "INFO"
+    
+    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+    $configPath = Join-Path $ossecAgentPath "ossec.conf"
 
     try {
-        $templateContent = Get-Content -Path $templatePath -Raw
-        $newConfig = $templateContent -replace 'MANAGER_IP_ADDRESS', $ipAddress `
-                                    -replace 'AGENT_NAME', $agentName `
-                                    -replace 'AGENT_GROUP', $groupLabel
+        $config = Get-Content -Path $configPath -Raw
+        $config = $config -replace '<address>0.0.0.0</address>', "<address>$configIP</address>"
+        Write-Log "Updated manager IP address to: $configIP" -Level "SUCCESS"
 
-        # Overwrite the existing ossec.conf with the new configuration
-        Set-Content -Path $agentConfPath -Value $newConfig -Force
+        $enrollmentSection = @"
+<enrollment>
+    <enabled>yes</enabled>
+    <manager_address>$configIP</manager_address>
+    <agent_name>$agentName</agent_name>
+</enrollment>
+"@
 
-        Write-Log "Agent configuration file has been successfully generated from template." -Level "SUCCESS"
+        if ($config -notmatch '<enrollment>') {
+            $config = $config -replace '(?s)(<client>.*?)(</client>)', "`$1`n$enrollmentSection`n`$2"
+            Write-Log "Added enrollment configuration" -Level "SUCCESS"
+        }
+
+        if ($config -notmatch '<groups>') {
+            $groupSection = "<groups>$groupLabel</groups>"
+            $config = $config -replace '</enrollment>', "$groupSection`n</enrollment>"
+            Write-Log "Added group configuration: $groupLabel" -Level "SUCCESS"
+        }
+
+        $config | Set-Content -Path $configPath
+        Write-Log "Wazuh agent configuration completed successfully" -Level "SUCCESS"
+        
+        if ($groupLabel -eq "Personal") {
+            Write-Log "Personal group detected - configured for internal network (192.168.100.37)" -Level "INFO"
+        }
     }
     catch {
-        throw "Failed to create agent configuration from template. Error: $($_.Exception.Message)"
+        Write-Log "Failed to configure Wazuh agent: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
@@ -156,6 +238,6 @@ function Start-WazuhService {
     }
 }
 
-Export-ModuleMember -Function Uninstall-WazuhAgent, Install-WazuhAgent, Set-WazuhAgentConfiguration, Start-WazuhService
+Export-ModuleMember -Function Uninstall-ExistingWazuhAgent, Install-WazuhAgentMSI, Set-WazuhAgentConfiguration, Start-WazuhService
 
 #endregion
