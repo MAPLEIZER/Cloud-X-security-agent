@@ -255,7 +255,7 @@ function Install-WazuhAgentMSI {
 
             Write-Log "Starting Wazuh agent installation..." -Level "INFO"
             $logFile = Join-Path $env:TEMP "wazuh-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
-            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER='$ipAddress' WAZUH_REGISTRATION_SERVER='$ipAddress' WAZUH_AGENT_GROUP='$groupLabel' WAZUH_AGENT_NAME='$agentName'"
+            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER=$ipAddress WAZUH_REGISTRATION_SERVER=$ipAddress WAZUH_AGENT_GROUP=$groupLabel WAZUH_AGENT_NAME=$agentName"
             Write-Log "MSI command: msiexec.exe $installArgs" -Level "INFO"
             Write-Log "MSI log file: $logFile" -Level "INFO"
             $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
