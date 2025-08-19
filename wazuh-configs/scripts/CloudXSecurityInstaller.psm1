@@ -219,14 +219,23 @@ function Install-WazuhAgentMSI {
             Invoke-SecureDownload -Url $WAZUH_URL -OutputPath $installerPath -Description "Wazuh Agent installer"
 
             Write-Log "Starting Wazuh agent installation..." -Level "INFO"
-            $installArgs = "/i `"$installerPath`" /q WAZUH_MANAGER='$ipAddress' WAZUH_REGISTRATION_SERVER='$ipAddress' WAZUH_AGENT_GROUP='$groupLabel' WAZUH_AGENT_NAME='$agentName'"
+            $logFile = Join-Path $env:TEMP "wazuh-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER='$ipAddress' WAZUH_REGISTRATION_SERVER='$ipAddress' WAZUH_AGENT_GROUP='$groupLabel' WAZUH_AGENT_NAME='$agentName'"
+            Write-Log "MSI command: msiexec.exe $installArgs" -Level "INFO"
+            Write-Log "MSI log file: $logFile" -Level "INFO"
             $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
 
             if ($process.ExitCode -eq 0) {
                 Write-Log "Wazuh agent installed successfully" -Level "SUCCESS"
                 break
             } else {
-                throw "Installer failed with exit code: $($process.ExitCode)"
+                Write-Log "Reading MSI log file for error details..." -Level "INFO"
+                if (Test-Path $logFile) {
+                    $logContent = Get-Content $logFile -Tail 20 | Out-String
+                    Write-Log "Last 20 lines of MSI log:" -Level "ERROR"
+                    Write-Log $logContent -Level "ERROR"
+                }
+                throw "Installer failed with exit code: $($process.ExitCode). Check MSI log: $logFile"
             }
         }
         catch {
@@ -416,9 +425,9 @@ function Show-Banner {
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host ""
     Write-Host "                       CLOUD-X SECURITY WAZUH AGENT ENTERPRISE SETUP                         " -ForegroundColor White -BackgroundColor DarkGreen
-    Write-Host "                              Version 3.1 - Enhanced Security                           " -ForegroundColor White -BackgroundColor DarkGreen
+    Write-Host "                              Version 3.1 - Enhanced Security                                " -ForegroundColor White -BackgroundColor DarkGreen
     Write-Host "                                   $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')                              " -ForegroundColor Yellow -BackgroundColor DarkGreen
-    Write-Host "                                     by CLOUD-X SECURITY                                  " -ForegroundColor Cyan -BackgroundColor DarkGreen
+    Write-Host "                                     by CLOUD-X SECURITY                                     " -ForegroundColor Cyan -BackgroundColor DarkGreen
     Write-Host ""
 }
 
