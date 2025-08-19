@@ -2,7 +2,7 @@
 
 <#
 .SYNOPSIS
-    MAPLEX Wazuh Agent Complete Uninstaller
+    Cloud-X Security Wazuh Agent Complete Uninstaller
 .DESCRIPTION
     Comprehensive script to completely remove Wazuh agent from Windows systems
     Handles registry cleanup, service removal, file cleanup, and system restoration
@@ -11,13 +11,13 @@
 .PARAMETER KeepLogs
     Keep log files during uninstallation
 .EXAMPLE
-    .\Cloud-X-Security-Wazuh-Uninstaller.ps1
+    .\uninstall-agent.ps1
 .EXAMPLE
-    .\Cloud-X-Security-Wazuh-Uninstaller.ps1 -Force -KeepLogs
+    .\uninstall-agent.ps1 -Force -KeepLogs
 .NOTES
-    MAPLEX Uninstaller Version 1.0
-    Author: MAPLEIZER
-    Created: 2025-08-18 19:01:33 UTC
+    Cloud-X Security Uninstaller Version 1.1
+    Author: Cloud-X Security
+    Updated: 2025-08-19
 #>
 
 param (

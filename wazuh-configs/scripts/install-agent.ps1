@@ -14,6 +14,44 @@
 
 #Requires -RunAsAdministrator
 
+function Write-Log {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Message,
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("INFO", "WARNING", "ERROR", "SUCCESS", "DEBUG")]
+        [string]$Level
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $formattedMessage = "$timestamp [$Level] - $Message"
+
+    $colorMap = @{
+        INFO    = "White";
+        WARNING = "Yellow";
+        ERROR   = "Red";
+        SUCCESS = "Green";
+        DEBUG   = "Cyan"
+    }
+
+    Write-Host $formattedMessage -ForegroundColor $colorMap[$Level]
+    if ($global:LogPath) {
+        Add-Content -Path $global:LogPath -Value $formattedMessage
+    }
+}
+
+function Start-Step {
+    param (
+        [string]$StepName
+    )
+    $script:currentStep++
+    $header = "=== STEP $script:currentStep OF $script:totalSteps: $StepName ==="
+    Write-Log $header -Level "INFO"
+    Write-Host "`n" + ("=" * $header.Length) -ForegroundColor Cyan
+    Write-Host $header -ForegroundColor Cyan
+    Write-Host ("=" * $header.Length) -ForegroundColor Cyan
+}
+
 function Show-Summary {
     param (
         [datetime]$startTime,

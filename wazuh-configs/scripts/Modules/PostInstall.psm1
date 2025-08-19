@@ -1,6 +1,8 @@
 #region PostInstall
 
 function Cleanup-TempFiles {
+    Export-ModuleMember -Function Cleanup-TempFiles
+
     Write-Log "Performing final cleanup..." -Level "INFO"
     
     # Use a variable from the main script's scope for WAZUH_VERSION
@@ -14,6 +16,8 @@ function Cleanup-TempFiles {
 }
 
 function Deploy-ActiveResponseScripts {
+    Export-ModuleMember -Function Deploy-ActiveResponseScripts
+
     Write-Log "Deploying custom active response scripts..." -Level "INFO"
 
     $scriptRoot = Get-Variable -Name PSScriptRoot -Scope 1 -ValueOnly
@@ -40,6 +44,8 @@ function Deploy-ActiveResponseScripts {
 }
 
 function Show-Summary {
+    Export-ModuleMember -Function Show-Summary
+
     param (
         [datetime]$startTime,
         [string]$agentName,
@@ -65,8 +71,5 @@ function Show-Summary {
     Write-Host "- Log File:      $($global:LogPath)" -ForegroundColor White
     Write-Host ""
 }
-
-# Export module members
-Export-ModuleMember -Function Cleanup-TempFiles, Deploy-ActiveResponseScripts, Show-Summary
 
 #endregion

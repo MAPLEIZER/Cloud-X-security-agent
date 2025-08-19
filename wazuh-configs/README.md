@@ -53,20 +53,32 @@ Enterprise-grade Wazuh agent setup script with enhanced security, auditing, and 
 
 ## ⚡ Quick Start
 
-Run the following command in an **elevated (Administrator)** PowerShell session to download and execute the installer. Replace the placeholder parameters with your specific configuration.
+Run the following command in an **elevated (Administrator)** PowerShell session to download and use the installer module:
 
 ```powershell
-# Download and execute the script in one line
+# Download and import the module, then run the installer
 $params = @{
     ipAddress  = '192.168.1.100'
     agentName  = 'WIN-AGENT-01'
     groupLabel = 'windows_servers'
 }
 
-iwr https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/install-agent.ps1 | iex; Start-CloudXSecurityWazuhInstall @params
+# Method 1: Direct module download and import
+$moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/CloudXSecurityInstaller.psm1"
+$moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
+$moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller.psm1" -Encoding UTF8
+Import-Module "$env:TEMP\CloudXSecurityInstaller.psm1" -Force
+Install-WazuhAgent @params
 ```
 
-> **Note:** The one-liner assumes the repository has been renamed to `Cloud-X-security-agent`.
+### Alternative Installation Methods
+
+```powershell
+# Method 2: Clone repository and import locally
+git clone https://github.com/MAPLEIZER/Cloud-X-security-agent.git
+Import-Module ".\Cloud-X-security-agent\wazuh-configs\scripts\CloudXSecurityInstaller.psm1" -Force
+Install-WazuhAgent @params
+```
 
 ## ⚙️ Configuration
 
