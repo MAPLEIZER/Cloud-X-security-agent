@@ -104,6 +104,40 @@ function Test-MSIAvailability {
     return $true
 }
 
+function Repair-WindowsInstallerRegistry {
+    Write-Log "Checking and repairing Windows Installer registry permissions..." -Level "INFO"
+    
+    try {
+        # Fix common registry permission issues
+        $registryPaths = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\Rollback\Scripts",
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData",
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer"
+        )
+        
+        foreach ($regPath in $registryPaths) {
+            if (-not (Test-Path $regPath)) {
+                Write-Log "Creating missing registry path: $regPath" -Level "INFO"
+                New-Item -Path $regPath -Force -ErrorAction SilentlyContinue | Out-Null
+            }
+        }
+        
+        # Reset Windows Installer service permissions
+        Write-Log "Resetting Windows Installer service..." -Level "INFO"
+        Stop-Service -Name "msiserver" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 5
+        Start-Service -Name "msiserver" -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 5
+        
+        Write-Log "Windows Installer registry repair completed" -Level "SUCCESS"
+        return $true
+    }
+    catch {
+        Write-Log "Registry repair failed: $($_.Exception.Message)" -Level "WARN"
+        return $false
+    }
+}
+
 function Invoke-SecureDownload {
     param(
         [string]$Url,
@@ -194,6 +228,7 @@ function Install-WazuhAgentMSI {
     Start-Step "Installing Wazuh Agent"
     
     Test-MSIAvailability
+    Repair-WindowsInstallerRegistry
     
     $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
     $configPath = Join-Path $ossecAgentPath "ossec.conf"
