@@ -76,8 +76,8 @@ function Test-SystemCompatibility {
 function Test-MSIAvailability {
     Write-Log "Checking Windows Installer availability..." -Level "INFO"
     
-    $maxWaitTime = 300  # 5 minutes
-    $checkInterval = 15  # 15 seconds
+    $maxWaitTime = 180  # 3 minutes
+    $checkInterval = 10  # 10 seconds
     $elapsed = 0
     
     while ($elapsed -lt $maxWaitTime) {
@@ -93,50 +93,46 @@ function Test-MSIAvailability {
         $elapsed += $checkInterval
     }
     
-    Write-Log "Timeout waiting for Windows Installer. Attempting to force-clear..." -Level "WARN"
-    
-    Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force
-    Start-Sleep -Seconds 10
-    
-    Restart-Service -Name "msiserver" -Force
-    Start-Sleep -Seconds 10
+    Write-Log "Timeout waiting for Windows Installer. Restarting MSI service..." -Level "WARN"
+    Restart-MSIService
     
     return $true
 }
 
-function Repair-WindowsInstallerRegistry {
-    Write-Log "Checking and repairing Windows Installer registry permissions..." -Level "INFO"
+function Restart-MSIService {
+    Write-Log "Restarting Windows Installer service to free up resources..." -Level "INFO"
     
     try {
-        # Fix common registry permission issues
-        $registryPaths = @(
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\Rollback\Scripts",
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData",
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer"
-        )
-        
-        foreach ($regPath in $registryPaths) {
-            if (-not (Test-Path $regPath)) {
-                Write-Log "Creating missing registry path: $regPath" -Level "INFO"
-                New-Item -Path $regPath -Force -ErrorAction SilentlyContinue | Out-Null
-            }
+        # Kill any hanging msiexec processes
+        $msiProcesses = Get-Process -Name "msiexec" -ErrorAction SilentlyContinue
+        if ($msiProcesses) {
+            Write-Log "Terminating $($msiProcesses.Count) msiexec process(es)..." -Level "INFO"
+            $msiProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 5
         }
         
-        # Reset Windows Installer service permissions
-        Write-Log "Resetting Windows Installer service..." -Level "INFO"
+        # Stop and restart the Windows Installer service
+        Write-Log "Stopping Windows Installer service..." -Level "INFO"
         Stop-Service -Name "msiserver" -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 5
-        Start-Service -Name "msiserver" -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 5
         
-        Write-Log "Windows Installer registry repair completed" -Level "SUCCESS"
-        return $true
+        Write-Log "Starting Windows Installer service..." -Level "INFO"
+        Start-Service -Name "msiserver" -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 10
+        
+        # Verify service is running
+        $service = Get-Service -Name "msiserver" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq 'Running') {
+            Write-Log "Windows Installer service restarted successfully" -Level "SUCCESS"
+        } else {
+            Write-Log "Warning: Windows Installer service may not be running properly" -Level "WARN"
+        }
     }
     catch {
-        Write-Log "Registry repair failed: $($_.Exception.Message)" -Level "WARN"
-        return $false
+        Write-Log "Error restarting Windows Installer service: $($_.Exception.Message)" -Level "WARN"
     }
 }
+
 
 function Invoke-SecureDownload {
     param(
@@ -177,9 +173,6 @@ function Uninstall-ExistingWazuhAgent {
     
     if ($wazuhAgent) {
         Write-Log "Found existing Wazuh Agent. Proceeding with uninstall..." -Level "INFO"
-        
-        # Apply registry repair before uninstalling
-        Repair-WindowsInstallerRegistry
         
         try {
             $logFile = Join-Path $env:TEMP "wazuh-uninstall-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
@@ -228,7 +221,6 @@ function Install-WazuhAgentMSI {
     Start-Step "Installing Wazuh Agent"
     
     Test-MSIAvailability
-    Repair-WindowsInstallerRegistry
     
     $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
     $configPath = Join-Path $ossecAgentPath "ossec.conf"
@@ -314,18 +306,27 @@ function Set-WazuhAgentConfiguration {
     
     Start-Step "Configuring Wazuh Agent"
     
+    # Determine the correct IP based on group
+    $configIP = if ($groupLabel -eq "Personal") {
+        "192.168.100.37"  # Internal network IP for Personal group
+    } else {
+        $ipAddress  # Use provided public IP for other groups
+    }
+    
+    Write-Log "Group: $groupLabel - Using IP: $configIP" -Level "INFO"
+    
     $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
     $configPath = Join-Path $ossecAgentPath "ossec.conf"
 
     try {
         $config = Get-Content -Path $configPath -Raw
-        $config = $config -replace '<address>0.0.0.0</address>', "<address>$ipAddress</address>"
-        Write-Log "Updated manager IP address to: $ipAddress" -Level "SUCCESS"
+        $config = $config -replace '<address>0.0.0.0</address>', "<address>$configIP</address>"
+        Write-Log "Updated manager IP address to: $configIP" -Level "SUCCESS"
 
         $enrollmentSection = @"
 <enrollment>
     <enabled>yes</enabled>
-    <manager_address>$ipAddress</manager_address>
+    <manager_address>$configIP</manager_address>
     <agent_name>$agentName</agent_name>
 </enrollment>
 "@
@@ -343,6 +344,10 @@ function Set-WazuhAgentConfiguration {
 
         $config | Set-Content -Path $configPath
         Write-Log "Wazuh agent configuration completed successfully" -Level "SUCCESS"
+        
+        if ($groupLabel -eq "Personal") {
+            Write-Log "Personal group detected - configured for internal network (192.168.100.37)" -Level "INFO"
+        }
     }
     catch {
         Write-Log "Failed to configure Wazuh agent: $($_.Exception.Message)" -Level "ERROR"
