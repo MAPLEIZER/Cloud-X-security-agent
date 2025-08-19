@@ -213,5 +213,3 @@ function Start-CloudXSecurityWazuhInstall {
         }
     }
 }
-
-Export-ModuleMember -Function Start-CloudXSecurityWazuhInstall
