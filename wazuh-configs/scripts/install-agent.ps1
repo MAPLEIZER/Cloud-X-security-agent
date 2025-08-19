@@ -1,6 +1,20 @@
+#================================================================================
+# REPOSITORY REFACTOR NOTICE (2025-08-19)
+#
+# This script is now part of a larger repository structure designed for
+# centralized Wazuh configuration management.
+#
+# - All scripts and modules are located in the 'wazuh-configs/scripts' directory.
+# - Agent configuration templates are in 'wazuh-configs/agents'.
+# - The main installer script is now 'install-agent.ps1'.
+# - The main uninstaller script is now 'uninstall-agent.ps1'.
+#
+# This change improves organization and scalability.
+#================================================================================
+
 #Requires -RunAsAdministrator
 
-function Start-NixGuardWazuhInstall {
+function Start-CloudXSecurityWazuhInstall {
 <#
 .SYNOPSIS
     Automates the installation and configuration of the Wazuh agent on Windows systems.
@@ -32,18 +46,18 @@ function Start-NixGuardWazuhInstall {
 
 .EXAMPLE
     # Using manual parameters
-    Start-NixGuardWazuhInstall -ipAddress '192.168.1.100' -agentName 'WIN-AGENT-01' -groupLabel 'windows_servers'
+    Start-CloudXSecurityWazuhInstall -ipAddress '192.168.1.100' -agentName 'WIN-AGENT-01' -groupLabel 'windows_servers'
 
 .EXAMPLE
     # Using a configuration file
-    Start-NixGuardWazuhInstall -ConfigFile 'C:\path\to\your\config.json'
+    Start-CloudXSecurityWazuhInstall -ConfigFile 'C:\path\to\your\config.json'
 
 .EXAMPLE
     # Uninstall the Wazuh agent
-    Start-NixGuardWazuhInstall -Uninstall
+    Start-CloudXSecurityWazuhInstall -Uninstall
 
 .NOTES
-    Author: NIXGUARD
+    Author: Cloud-X Security
     Version: 3.3 (Refactored for one-liner execution)
 #>
     [CmdletBinding(DefaultParameterSetName='Manual')]
@@ -113,7 +127,7 @@ function Start-NixGuardWazuhInstall {
             # --- UNINSTALL WORKFLOW ---
             Write-Log "Uninstall parameter detected. Launching the MAPLEX Uninstaller..." -Level "INFO"
             
-            $uninstallerPath = Join-Path $PSScriptRoot "NixGuard-Wazuh-Uninstaller.ps1"
+                        $uninstallerPath = Join-Path $PSScriptRoot "uninstall-agent.ps1"
             if (-not (Test-Path $uninstallerPath)) {
                 throw "Uninstaller script not found at: $uninstallerPath"
             }
@@ -139,7 +153,7 @@ function Start-NixGuardWazuhInstall {
 
         } else {
             # --- INSTALL WORKFLOW ---
-            Write-Log "Starting NIX Guard Wazuh Agent setup..." -Level "INFO"
+            Write-Log "Starting Cloud-X Security Wazuh Agent setup..." -Level "INFO"
             Write-Log "Parameters provided by: $PSCmdlet.ParameterSetName" -Level "INFO"
 
             # Load configuration from file if provided
@@ -164,7 +178,7 @@ function Start-NixGuardWazuhInstall {
             # Core Operations
             Uninstall-WazuhAgent
             Install-WazuhAgent -WAZUH_VERSION $WAZUH_VERSION
-            Configure-WazuhAgent -ipAddress $ipAddress -agentName $agentName -groupLabel $groupLabel
+            Set-WazuhAgentConfiguration -ipAddress $ipAddress -agentName $agentName -groupLabel $groupLabel
             Start-WazuhService
 
             # Post-Install
@@ -200,4 +214,4 @@ function Start-NixGuardWazuhInstall {
     }
 }
 
-Export-ModuleMember -Function Start-NixGuardWazuhInstall
+Export-ModuleMember -Function Start-CloudXSecurityWazuhInstall

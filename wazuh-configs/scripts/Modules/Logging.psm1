@@ -1,7 +1,7 @@
 #region Logging
 
 function Initialize-Logging {
-    $logDir = Join-Path $env:TEMP "NixGuard-Wazuh-Logs"
+    $logDir = Join-Path $env:TEMP "Cloud-X-Security-Wazuh-Logs"
     if (-not (Test-Path $logDir)) {
         New-Item -Path $logDir -ItemType Directory | Out-Null
     }

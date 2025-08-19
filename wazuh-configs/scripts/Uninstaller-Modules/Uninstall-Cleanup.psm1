@@ -97,7 +97,7 @@ function Remove-TempFiles {
         "$env:TEMP\*wazuh*",
         "$env:TEMP\*ossec*",
         "$env:TEMP\agent-automatic-setup*",
-        "$env:TEMP\nixguard-setup*"
+        "$env:TEMP\cloud-x-security-setup*"
     )
     
     $cleaned = 0

@@ -11,9 +11,9 @@
 .PARAMETER KeepLogs
     Keep log files during uninstallation
 .EXAMPLE
-    .\NixGuard-Wazuh-Uninstaller.ps1
+    .\Cloud-X-Security-Wazuh-Uninstaller.ps1
 .EXAMPLE
-    .\NixGuard-Wazuh-Uninstaller.ps1 -Force -KeepLogs
+    .\Cloud-X-Security-Wazuh-Uninstaller.ps1 -Force -KeepLogs
 .NOTES
     MAPLEX Uninstaller Version 1.0
     Author: MAPLEIZER

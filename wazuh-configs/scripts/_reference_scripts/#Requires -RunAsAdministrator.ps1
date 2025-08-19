@@ -2,7 +2,7 @@
 
 <#
 .SYNOPSIS
-    NixGuard Wazuh Agent Enterprise Setup Script - Fixed Version
+    Cloud-X Security Wazuh Agent Enterprise Setup Script - Fixed Version
 .DESCRIPTION
     Enterprise-grade script for automated Wazuh agent installation and configuration with
     enhanced security, auditing, and flexibility features.
@@ -45,7 +45,7 @@ param (
     
     [switch]$SkipHashVerification,
     
-    [string]$LogPath = "$env:TEMP\nixguard-setup-transcript-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+    [string]$LogPath = "$env:TEMP\cloud-x-security-setup-transcript-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 )
 
 # Script configuration
@@ -56,8 +56,8 @@ $ProgressPreference = "SilentlyContinue"
 $WAZUH_VERSION = "4.9.1-1"
 $PYTHON_VERSION = "3.12.4"
 $API_URL = "https://api.thenex.world/get-user"
-$BITLOCKER_SCRIPT_URL = "https://github.com/thenexlabs/nixguard-free-agent-setup/raw/main/windows/scripts/bitlocker_check.ps1"
-$REMOVE_THREAT_URL = "https://github.com/thenexlabs/nixguard-agent-setup/raw/main/windows/remove-threat.py"
+$BITLOCKER_SCRIPT_URL = "https://github.com/thenexlabs/cloud-x-security-free-agent-setup/raw/main/windows/scripts/bitlocker_check.ps1"
+$REMOVE_THREAT_URL = "https://github.com/thenexlabs/cloud-x-security-agent-setup/raw/main/windows/remove-threat.py"
 $PYTHON_URL = "https://www.python.org/ftp/python/$PYTHON_VERSION/python-$PYTHON_VERSION-amd64.exe"
 $WAZUH_URL = "https://packages.wazuh.com/4.x/windows/wazuh-agent-$WAZUH_VERSION.msi"
 
@@ -524,7 +524,7 @@ function Show-Summary {
     
     Write-Host ""
     Write-Host "================================================================================" -ForegroundColor Green
-    Write-Host "                    NIX GUARD ENTERPRISE SETUP COMPLETED                        " -ForegroundColor Green
+    Write-Host "                 CLOUD-X SECURITY ENTERPRISE SETUP COMPLETED                    " -ForegroundColor Green
     Write-Host "================================================================================" -ForegroundColor Green
     Write-Host ""
     
@@ -572,7 +572,7 @@ try {
     # System compatibility check
     Test-SystemCompatibility
 
-        # NIX Guard ASCII Art Welcome Banner - ALL GREEN
+        # Cloud-X Security ASCII Art Welcome Banner - ALL GREEN
     Write-Host ""
     Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Green
     Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Green
@@ -630,10 +630,10 @@ try {
     Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Green
     Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Green
     Write-Host ""
-    Write-Host "                          NIX GUARD WAZUH AGENT ENTERPRISE SETUP                           " -ForegroundColor White -BackgroundColor DarkGreen
+    Write-Host "                       CLOUD-X SECURITY WAZUH AGENT ENTERPRISE SETUP                         " -ForegroundColor White -BackgroundColor DarkGreen
     Write-Host "                              Version 3.1 - Enhanced Security                           " -ForegroundColor White -BackgroundColor DarkGreen
     Write-Host "                                   2025-08-18 18:47:21 UTC                              " -ForegroundColor Yellow -BackgroundColor DarkGreen
-    Write-Host "                                        by NIXGUARD                                     " -ForegroundColor Cyan -BackgroundColor DarkGreen
+    Write-Host "                                     by CLOUD-X SECURITY                                  " -ForegroundColor Cyan -BackgroundColor DarkGreen
     Write-Host ""
     Write-Log "Enterprise setup initiated by $env:USERNAME at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -Level "SUCCESS"
     Write-Log "Agent Name: $agentName" -Level "INFO"

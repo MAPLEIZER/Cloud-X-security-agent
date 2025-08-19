@@ -95,39 +95,38 @@ function Install-WazuhAgent {
     Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
 }
 
-function Configure-WazuhAgent {
-    Start-Step "Configuring Wazuh Agent"
-    
-    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
-    $configPath = Join-Path $ossecAgentPath "ossec.conf"
+function Set-WazuhAgentConfiguration {
+    param (
+        [string]$ipAddress,
+        [string]$agentName,
+        [string]$groupLabel
+    )
+
+    Start-Step "Configuring Wazuh Agent from template"
+    Write-Log "Configuring agent '$agentName' for manager '$ipAddress' in group '$groupLabel'" -Level "INFO"
+
+    # The main script sets a script-level variable PSScriptRoot which we can access from the module.
+    $scriptRoot = Get-Variable -Name PSScriptRoot -Scope 1 -ValueOnly
+    $templatePath = Join-Path $scriptRoot "agent-template.conf"
+    $agentConfPath = "${env:ProgramFiles(x86)}\ossec-agent\ossec.conf"
+
+    if (-not (Test-Path $templatePath)) {
+        throw "Agent configuration template not found at: $templatePath"
+    }
 
     try {
-        # Update manager IP address
-        $config = Get-Content -Path $configPath -Raw
-        $config = $config -replace '<address>0.0.0.0</address>', "<address>$($using:ipAddress)</address>"
-        Write-Log "Updated manager IP address to: $($using:ipAddress)" -Level "SUCCESS"
+        $templateContent = Get-Content -Path $templatePath -Raw
+        $newConfig = $templateContent -replace 'MANAGER_IP_ADDRESS', $ipAddress `
+                                    -replace 'AGENT_NAME', $agentName `
+                                    -replace 'AGENT_GROUP', $groupLabel
 
-        # Add enrollment section
-        $enrollmentSection = "<enrollment>`n    <enabled>yes</enabled>`n    <manager_address>$($using:ipAddress)</manager_address>`n    <agent_name>$($using:agentName)</agent_name>`n</enrollment>"
+        # Overwrite the existing ossec.conf with the new configuration
+        Set-Content -Path $agentConfPath -Value $newConfig -Force
 
-        if ($config -notmatch '<enrollment>') {
-            $config = $config -replace '(?s)(<client>.*?)(</client>)', "`$1`n$enrollmentSection`n`$2"
-            Write-Log "Added enrollment configuration" -Level "SUCCESS"
-        }
-
-        # Add group section
-        if ($config -notmatch '<groups>') {
-            $groupSection = "<groups>$($using:groupLabel)</groups>"
-            $config = $config -replace '</enrollment>', "$groupSection`n</enrollment>"
-            Write-Log "Added group configuration: $($using:groupLabel)" -Level "SUCCESS"
-        }
-
-        $config | Set-Content -Path $configPath
-        Write-Log "Wazuh agent configuration completed successfully" -Level "SUCCESS"
+        Write-Log "Agent configuration file has been successfully generated from template." -Level "SUCCESS"
     }
     catch {
-        Write-Log "Failed to configure Wazuh agent: $($_.Exception.Message)" -Level "ERROR"
-        throw
+        throw "Failed to create agent configuration from template. Error: $($_.Exception.Message)"
     }
 }
 
@@ -157,6 +156,6 @@ function Start-WazuhService {
     }
 }
 
-Export-ModuleMember -Function Uninstall-WazuhAgent, Install-WazuhAgent, Configure-WazuhAgent, Start-WazuhService
+Export-ModuleMember -Function Uninstall-WazuhAgent, Install-WazuhAgent, Set-WazuhAgentConfiguration, Start-WazuhService
 
 #endregion

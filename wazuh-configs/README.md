@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="nextechlabs_logo.jpeg" alt="Nextech Labs Logo" width="200"/>
-</p>
 
-# NixGuard Wazuh Agent Installer
+
+# Cloud-X Security Wazuh Agent Installer
 
 Enterprise-grade Wazuh agent setup script with enhanced security, auditing, and configuration management features.
 
@@ -65,12 +63,23 @@ $params = @{
     groupLabel = 'windows_servers'
 }
 
-iwr https://raw.githubusercontent.com/MAPLEIZER/NixGuard-Wazuh-Installer/main/NixGuard-Wazuh-Installer.ps1 | iex; Start-NixGuardWazuhInstall @params
+iwr https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/install-agent.ps1 | iex; Start-CloudXSecurityWazuhInstall @params
 ```
 
-> **Note:** For the one-liner to work, the main logic of the installer script would need to be wrapped in a function (e.g., `Start-NixGuardWazuhInstall`). This is a recommended practice for distributable scripts.
+> **Note:** The one-liner assumes the repository has been renamed to `Cloud-X-security-agent`.
 
 ## ⚙️ Configuration
+
+This repository is designed to be a centralized location for managing your Wazuh agent configurations.
+
+### **Agent Configuration (`/agents`)**
+
+The `agents` directory contains templates for `ossec.conf`. You can define default configurations and create specific overrides for different operating systems or server roles.
+
+- `agents/ossec.conf`: Default configuration for all agents.
+- `agents/windows-agents/ossec.conf`: Specific overrides for Windows agents.
+- `agents/linux-agents/ossec.conf`: Specific overrides for Linux agents.
+- `agents/custom-groups/`: Define configurations for specific Wazuh groups (e.g., web servers, database servers).
 
 ### **Installer Parameters**
 
@@ -94,14 +103,14 @@ A powerful, standalone uninstaller is included to completely and safely remove a
 
 ### **How to Run the Uninstaller**
 
-You can run the uninstaller directly or via the main installer script.
+Navigate to the `wazuh-configs/scripts` directory to run the uninstaller.
 
 ```powershell
-# Option 1: Using the main script
-.\NixGuard-Wazuh-Installer.ps1 -Uninstall
+# Option 1: Using the main installer script
+.\install-agent.ps1 -Uninstall
 
 # Option 2: Running the uninstaller script directly
-.\NixGuard-Wazuh-Uninstaller.ps1
+.\uninstall-agent.ps1
 ```
 
 ### **Uninstaller Parameters**
@@ -117,29 +126,32 @@ If the script fails, a `SETUP FAILED` message will appear.
 
 1.  **Check Administrator Privileges**: The most common issue is not running PowerShell as an Administrator.
 2.  **Check Network Connectivity**: Ensure the machine can reach the internet and that the Wazuh manager IP is correct and reachable.
-3.  **Review the Log File**: The script will output the path to a transcript log (e.g., `NixGuard-Wazuh-Installer-*.log`). This file contains a complete record of the execution and will have detailed error messages.
+3.  **Review the Log File**: The script will output the path to a transcript log (e.g., `Cloud-X-Security-Wazuh-Installer-*.log`). This file contains a complete record of the execution and will have detailed error messages.
 4.  **Verify Parameters**: Double-check that all parameters are correct. If using a config file, ensure the path is correct and the JSON is valid.
 
 ## 📁 Repository Structure
 
 ```
-NixGuard-Wazuh-Installer/
-├── Modules/                              # Installer modules
-│   ├── Banner.psm1
-│   ├── Logging.psm1
-│   ├── PostInstall.psm1
-│   ├── Utilities.psm1
-│   └── WazuhOperations.psm1
-├── Uninstaller-Modules/                  # Uninstaller modules
-│   ├── Uninstall-Cleanup.psm1
-│   ├── Uninstall-Display.psm1
-│   ├── Uninstall-Operations.psm1
-│   └── Uninstall-Utilities.psm1
-├── _reference_scripts/                   # Archived original scripts
-├── config.json.example                   # Example configuration file
-├── NixGuard-Wazuh-Installer.ps1          # Main installer script
-├── NixGuard-Wazuh-Uninstaller.ps1        # Main uninstaller script
-└── README.md                             # This file
+wazuh-configs/
+├── agents/
+│   ├── ossec.conf                    # Default agent configuration
+│   ├── linux-agents/
+│   │   └── ossec.conf               # Linux-specific agent config
+│   ├── windows-agents/
+│   │   └── ossec.conf               # Windows-specific agent config
+│   └── custom-groups/
+│       ├── web-servers/
+│       │   └── ossec.conf           # Web server agents config
+│       └── database-servers/
+│           └── ossec.conf           # Database server agents config
+├── scripts/
+│   ├── Modules/                      # PowerShell modules for the installer
+│   ├── Uninstaller-Modules/          # PowerShell modules for the uninstaller
+│   ├── install-agent.ps1             # Windows installation script
+│   ├── uninstall-agent.ps1           # Windows uninstallation script
+│   ├── install-agent.sh              # (Placeholder) Linux installation script
+│   └── update-config.sh              # (Placeholder) Configuration update script
+└── README.md
 ```
 
 ---
