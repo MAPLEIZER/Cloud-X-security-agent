@@ -112,7 +112,7 @@ function Install-WazuhAgent {
 
             Write-Log "Starting Wazuh agent installation..." -Level "INFO"
             $logFile = Join-Path $env:TEMP "wazuh-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
-            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER=$ipAddress WAZUH_REGISTRATION_SERVER=$ipAddress WAZUH_AGENT_GROUP=$groupLabel WAZUH_AGENT_NAME=$agentName"
+            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER=$managerIP WAZUH_REGISTRATION_SERVER=$managerIP WAZUH_AGENT_GROUP=$groupLabel WAZUH_AGENT_NAME=$agentName"
             Write-Log "MSI command: msiexec.exe $installArgs" -Level "INFO"
             Write-Log "MSI log file: $logFile" -Level "INFO"
             $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
@@ -142,6 +142,82 @@ function Install-WazuhAgent {
             $retryCount++
             if ($retryCount -le $maxRetries) {
                 Write-Log "Installation failed: $($_.Exception.Message). Retrying..." -Level "WARN"
+                Start-Sleep -Seconds 10
+            } else {
+                Write-Log "Installation failed after $($maxRetries + 1) attempts: $($_.Exception.Message)" -Level "ERROR"
+                throw
+            }
+        }
+    } while ($retryCount -le $maxRetries)
+
+    # Cleanup
+    Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+}
+
+function Install-WazuhAgentMSI {
+    param(
+        [string]$ipAddress,
+        [string]$agentName,
+        [string]$groupLabel
+    )
+    
+    # Determine the correct IP based on group BEFORE installation
+    $managerIP = if ($groupLabel -eq "Personal") {
+        "192.168.100.37"  # Internal network IP for Personal group
+    } else {
+        $ipAddress  # Use provided public IP for other groups
+    }
+    
+    Write-Log "Group: $groupLabel - Using Manager IP: $managerIP" -Level "INFO"
+    
+    Start-Step "Installing Wazuh Agent"
+    
+    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+    $configPath = Join-Path $ossecAgentPath "ossec.conf"
+    
+    if (Test-Path $configPath) {
+        Write-Log "Existing configuration detected. Removing..." -Level "WARN"
+        Remove-Item $configPath -Force -ErrorAction SilentlyContinue
+    }
+
+    $installerPath = Join-Path $env:TEMP "wazuh-agent-$WAZUH_VERSION.msi"
+    if (Test-Path $installerPath) {
+        Remove-Item $installerPath -Force
+    }
+
+    $maxRetries = 3
+    $retryCount = 0
+
+    do {
+        try {
+            Write-Log "Download attempt $($retryCount + 1) of $($maxRetries + 1)" -Level "INFO"
+            
+            Invoke-SecureDownload -Url $WAZUH_URL -OutputPath $installerPath -Description "Wazuh Agent installer"
+
+            Write-Log "Starting Wazuh agent installation..." -Level "INFO"
+            $logFile = Join-Path $env:TEMP "wazuh-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+            $installArgs = "/i `"$installerPath`" /qn /l*v `"$logFile`" WAZUH_MANAGER=$managerIP WAZUH_REGISTRATION_SERVER=$managerIP WAZUH_AGENT_GROUP=$groupLabel WAZUH_AGENT_NAME=$agentName"
+            Write-Log "MSI command: msiexec.exe $installArgs" -Level "INFO"
+            Write-Log "MSI log file: $logFile" -Level "INFO"
+            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
+
+            if ($process.ExitCode -eq 0) {
+                Write-Log "Wazuh agent installed successfully" -Level "SUCCESS"
+                break
+            } else {
+                Write-Log "Reading MSI log file for error details..." -Level "INFO"
+                if (Test-Path $logFile) {
+                    $logContent = Get-Content $logFile -Tail 20
+                    Write-Log "Last 20 lines of MSI log:" -Level "INFO"
+                    $logContent | ForEach-Object { Write-Log $_ -Level "INFO" }
+                }
+                throw "MSI installation failed with exit code: $($process.ExitCode)"
+            }
+        }
+        catch {
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                Write-Log "Installation attempt failed: $($_.Exception.Message). Retrying in 10 seconds..." -Level "WARN"
                 Start-Sleep -Seconds 10
             } else {
                 Write-Log "Installation failed after $($maxRetries + 1) attempts: $($_.Exception.Message)" -Level "ERROR"
