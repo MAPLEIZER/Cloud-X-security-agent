@@ -168,53 +168,53 @@ function Invoke-SecureDownload {
     }
 }
 
-function Uninstall-WazuhAgent {
+function Uninstall-ExistingWazuhAgent {
     Start-Step "Uninstalling Existing Wazuh Agent"
-
-    try {
-        $service = Get-Service -Name "WazuhSvc" -ErrorAction SilentlyContinue
-        if ($service -and $service.Status -ne 'Stopped') {
-            Write-Log "Stopping Wazuh Agent service..." -Level "INFO"
-            Stop-Service -Name "WazuhSvc" -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 5
-        }
-
-        Write-Log "Searching for Wazuh Agent in installed programs..." -Level "INFO"
-        $uninstallPaths = @(
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-            "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        )
-        $wazuhApp = Get-ItemProperty -Path $uninstallPaths -ErrorAction SilentlyContinue | 
-                   Where-Object { $_.DisplayName -like "Wazuh Agent" }
-
-        if (-not $wazuhApp) {
-            Write-Log "No existing Wazuh Agent found. Proceeding with fresh installation." -Level "SUCCESS"
-            return
-        }
-
+    
+    Write-Log "Searching for Wazuh Agent in installed programs..." -Level "INFO"
+    
+    $wazuhAgent = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*Wazuh*" }
+    
+    if ($wazuhAgent) {
         Write-Log "Found existing Wazuh Agent. Proceeding with uninstall..." -Level "INFO"
-        $uninstallCommand = $wazuhApp.UninstallString
         
-        if ($uninstallCommand -like "MsiExec.exe*") {
-            $productCode = $wazuhApp.PSChildName
-            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /q" -Wait -PassThru
+        # Apply registry repair before uninstalling
+        Repair-WindowsInstallerRegistry
+        
+        try {
+            $logFile = Join-Path $env:TEMP "wazuh-uninstall-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/x", $wazuhAgent.IdentifyingNumber, "/qn", "/l*v", "`"$logFile`"" -Wait -PassThru
             
             if ($process.ExitCode -ne 0) {
+                Write-Log "Uninstall failed with exit code: $($process.ExitCode)" -Level "ERROR"
+                Write-Log "Uninstall log file: $logFile" -Level "ERROR"
+                
+                # Try to read and display last lines of uninstall log
+                if (Test-Path $logFile) {
+                    Write-Log "Reading uninstall log file for error details..." -Level "INFO"
+                    try {
+                        $logContent = Get-Content $logFile -Tail 20 -ErrorAction SilentlyContinue
+                        if ($logContent) {
+                            Write-Log "Last 20 lines of uninstall log:" -Level "ERROR"
+                            $logContent | ForEach-Object { Write-Log $_ -Level "ERROR" }
+                        }
+                    }
+                    catch {
+                        Write-Log "Could not read uninstall log file" -Level "WARN"
+                    }
+                }
+                
                 throw "Uninstaller failed with exit code: $($process.ExitCode)"
             }
+            
+            Write-Log "Existing Wazuh Agent uninstalled successfully" -Level "SUCCESS"
         }
-
-        $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
-        if (Test-Path $ossecAgentPath) {
-            Write-Log "Performing post-uninstall cleanup..." -Level "INFO"
-            Remove-Item -Recurse -Force $ossecAgentPath -ErrorAction SilentlyContinue
+        catch {
+            Write-Log "Error during uninstall: $($_.Exception.Message)" -Level "ERROR"
+            throw
         }
-
-        Write-Log "Wazuh Agent uninstalled successfully" -Level "SUCCESS"
-    }
-    catch {
-        Write-Log "Error during uninstall: $($_.Exception.Message)" -Level "ERROR"
-        throw
+    } else {
+        Write-Log "No existing Wazuh Agent found. Proceeding with fresh installation." -Level "SUCCESS"
     }
 }
 
