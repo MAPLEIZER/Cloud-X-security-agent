@@ -14,6 +14,32 @@
 
 #Requires -RunAsAdministrator
 
+function Show-Summary {
+    param (
+        [datetime]$startTime,
+        [string]$agentName,
+        [string]$ipAddress,
+        [string]$groupLabel
+    )
+
+    $endTime = Get-Date
+    $duration = New-TimeSpan -Start $startTime -End $endTime
+
+    Write-Host ""
+    Write-Host "================================================================================" -ForegroundColor Green
+    Write-Host "                         SETUP COMPLETED SUCCESSFULLY                           " -ForegroundColor Green
+    Write-Host "================================================================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Setup completed successfully." -ForegroundColor Green
+
+    Write-Host "Summary:" -ForegroundColor Cyan
+    Write-Host "- Agent Name:    $agentName" -ForegroundColor White
+    Write-Host "- Manager IP:    $ipAddress" -ForegroundColor White
+    Write-Host "- Agent Group:   $groupLabel" -ForegroundColor White
+    Write-Host "- Total Time:    $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor White
+    Write-Host ""
+}
+
 function Start-CloudXSecurityWazuhInstall {
 <#
 .SYNOPSIS
@@ -106,35 +132,11 @@ function Start-CloudXSecurityWazuhInstall {
     try {
         # Import Modules
         $modulePath = Join-Path $PSScriptRoot "Modules"
-        
-        # Robust module import supporting both local script execution and web one-liner (iex)
-        $modules = @("Banner.psm1","Logging.psm1","Utilities.psm1","WazuhOperations.psm1","PostInstall.psm1")
-        $repoRawBase = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/Modules"
-
-        $usingWeb = [string]::IsNullOrWhiteSpace($PSScriptRoot) -or -not (Test-Path $modulePath)
-        if ($usingWeb) {
-            # Running via iex: download modules to temp and import them
-            $tempModulesDir = Join-Path $env:TEMP "CloudXSecurity\Modules"
-            if (-not (Test-Path $tempModulesDir)) { New-Item -ItemType Directory -Path $tempModulesDir -Force | Out-Null }
-
-            foreach ($m in $modules) {
-                $url = "$repoRawBase/$m"
-                $dest = Join-Path $tempModulesDir $m
-                try {
-                    Write-Verbose "Downloading module $m from $url"
-                    Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile $dest -ErrorAction Stop
-                    Import-Module $dest -Force -ErrorAction Stop
-                } catch {
-                    throw "Failed to download/import module '$m' from '$url': $($_.Exception.Message)"
-                }
-            }
-        } else {
-            # Local execution: import modules from repository
-            foreach ($m in $modules) {
-                $path = Join-Path $modulePath $m
-                Import-Module $path -Force -ErrorAction Stop
-            }
-        }
+        Import-Module (Join-Path $modulePath "Banner.psm1") -Force
+        Import-Module (Join-Path $modulePath "Logging.psm1") -Force
+        Import-Module (Join-Path $modulePath "Utilities.psm1") -Force
+        Import-Module (Join-Path $modulePath "WazuhOperations.psm1") -Force
+        Import-Module (Join-Path $modulePath "PostInstall.psm1") -Force
 
         # Start Logging
         if ($PSBoundParameters.ContainsKey('LogPath')) {
