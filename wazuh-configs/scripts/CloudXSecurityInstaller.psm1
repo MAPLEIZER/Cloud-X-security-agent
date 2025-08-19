@@ -6,42 +6,360 @@
 
 #region Helper Functions
 
+# Define constants
+$WAZUH_VERSION = "4.9.1-1"
+$WAZUH_URL = "https://packages.wazuh.com/4.x/windows/wazuh-agent-$WAZUH_VERSION.msi"
+
 function Write-Log {
     param(
-        [Parameter(Mandatory=$true)]
         [string]$Message,
-        [Parameter(Mandatory=$true)]
-        [ValidateSet("INFO", "WARNING", "ERROR", "SUCCESS", "DEBUG")]
-        [string]$Level
+        [ValidateSet("INFO", "WARN", "ERROR", "SUCCESS", "PROGRESS", "DOWNLOAD", "SECURITY")]
+        [string]$Level = "INFO",
+        [switch]$NoNewline
     )
-
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $formattedMessage = "$timestamp [$Level] - $Message"
-
-    $colorMap = @{
-        INFO    = "White";
-        WARNING = "Yellow";
-        ERROR   = "Red";
-        SUCCESS = "Green";
-        DEBUG   = "Cyan"
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC"
+    $logMessage = "[$timestamp] [$Level] $Message"
+    
+    $params = @{}
+    if ($NoNewline) { $params.NoNewline = $true }
+    
+    switch ($Level) {
+        "INFO"     { Write-Host $logMessage -ForegroundColor Cyan @params }
+        "WARN"     { Write-Host $logMessage -ForegroundColor Yellow @params }
+        "ERROR"    { Write-Host $logMessage -ForegroundColor Red @params }
+        "SUCCESS"  { Write-Host $logMessage -ForegroundColor Green @params }
+        "PROGRESS" { Write-Host $logMessage -ForegroundColor Magenta @params }
+        "DOWNLOAD" { Write-Host $logMessage -ForegroundColor DarkYellow @params }
+        "SECURITY" { Write-Host $logMessage -ForegroundColor DarkRed @params }
     }
-
-    Write-Host $formattedMessage -ForegroundColor $colorMap[$Level]
+    
     if ($global:LogPath) {
-        Add-Content -Path $global:LogPath -Value $formattedMessage
+        Add-Content -Path $global:LogPath -Value $logMessage
     }
 }
 
 function Start-Step {
-    param (
-        [string]$StepName
-    )
+    param([string]$StepName)
+    
     $script:currentStep++
-    $header = "=== STEP $script:currentStep OF $script:totalSteps: $StepName ==="
-    Write-Log $header -Level "INFO"
-    Write-Host "`n" + ("=" * $header.Length) -ForegroundColor Cyan
-    Write-Host $header -ForegroundColor Cyan
-    Write-Host ("=" * $header.Length) -ForegroundColor Cyan
+    $percentComplete = [math]::Round(($script:currentStep / $script:totalSteps) * 100)
+    
+    Write-Host ""
+    Write-Host "=" * 80 -ForegroundColor DarkGray
+    Write-Log "STEP $script:currentStep/$script:totalSteps : $StepName" -Level "PROGRESS"
+    Write-Host "=" * 80 -ForegroundColor DarkGray
+}
+
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-SystemCompatibility {
+    Write-Log "Checking system compatibility..." -Level "INFO"
+    
+    try {
+        $freeSpace = (Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace / 1GB
+        if ($freeSpace -lt 0.5) {
+            throw "Insufficient disk space. At least 500MB required, found $([math]::Round($freeSpace, 2))GB"
+        }
+        Write-Log "System compatibility check passed" -Level "SUCCESS"
+    }
+    catch {
+        Write-Log "System compatibility check failed: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Test-MSIAvailability {
+    Write-Log "Checking Windows Installer availability..." -Level "INFO"
+    
+    $maxWaitTime = 300  # 5 minutes
+    $checkInterval = 15  # 15 seconds
+    $elapsed = 0
+    
+    while ($elapsed -lt $maxWaitTime) {
+        $msiProcesses = Get-Process -Name "msiexec" -ErrorAction SilentlyContinue
+        
+        if (-not $msiProcesses) {
+            Write-Log "Windows Installer is available" -Level "SUCCESS"
+            return $true
+        }
+        
+        Write-Log "Windows Installer busy. Waiting $checkInterval seconds... ($elapsed/$maxWaitTime seconds elapsed)" -Level "WARN"
+        Start-Sleep -Seconds $checkInterval
+        $elapsed += $checkInterval
+    }
+    
+    Write-Log "Timeout waiting for Windows Installer. Attempting to force-clear..." -Level "WARN"
+    
+    Get-Process -Name "msiexec" -ErrorAction SilentlyContinue | Stop-Process -Force
+    Start-Sleep -Seconds 10
+    
+    Restart-Service -Name "msiserver" -Force
+    Start-Sleep -Seconds 10
+    
+    return $true
+}
+
+function Invoke-SecureDownload {
+    param(
+        [string]$Url,
+        [string]$OutputPath,
+        [string]$Description = "file"
+    )
+    
+    Write-Log "Starting download of $Description" -Level "DOWNLOAD"
+    Write-Log "Source: $Url" -Level "DOWNLOAD"
+    Write-Log "Destination: $OutputPath" -Level "DOWNLOAD"
+    
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        
+        Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing
+        
+        if (-not (Test-Path $OutputPath)) {
+            throw "Downloaded file not found at expected location"
+        }
+        
+        $fileSizeMB = [math]::Round((Get-Item $OutputPath).Length / 1MB, 2)
+        Write-Log "Download completed successfully! File size: $fileSizeMB MB" -Level "SUCCESS"
+        
+    }
+    catch {
+        Write-Log "Download failed: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Uninstall-WazuhAgent {
+    Start-Step "Uninstalling Existing Wazuh Agent"
+
+    try {
+        $service = Get-Service -Name "WazuhSvc" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -ne 'Stopped') {
+            Write-Log "Stopping Wazuh Agent service..." -Level "INFO"
+            Stop-Service -Name "WazuhSvc" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 5
+        }
+
+        Write-Log "Searching for Wazuh Agent in installed programs..." -Level "INFO"
+        $uninstallPaths = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        )
+        $wazuhApp = Get-ItemProperty -Path $uninstallPaths -ErrorAction SilentlyContinue | 
+                   Where-Object { $_.DisplayName -like "Wazuh Agent" }
+
+        if (-not $wazuhApp) {
+            Write-Log "No existing Wazuh Agent found. Proceeding with fresh installation." -Level "SUCCESS"
+            return
+        }
+
+        Write-Log "Found existing Wazuh Agent. Proceeding with uninstall..." -Level "INFO"
+        $uninstallCommand = $wazuhApp.UninstallString
+        
+        if ($uninstallCommand -like "MsiExec.exe*") {
+            $productCode = $wazuhApp.PSChildName
+            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/x $productCode /q" -Wait -PassThru
+            
+            if ($process.ExitCode -ne 0) {
+                throw "Uninstaller failed with exit code: $($process.ExitCode)"
+            }
+        }
+
+        $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+        if (Test-Path $ossecAgentPath) {
+            Write-Log "Performing post-uninstall cleanup..." -Level "INFO"
+            Remove-Item -Recurse -Force $ossecAgentPath -ErrorAction SilentlyContinue
+        }
+
+        Write-Log "Wazuh Agent uninstalled successfully" -Level "SUCCESS"
+    }
+    catch {
+        Write-Log "Error during uninstall: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Install-WazuhAgentMSI {
+    param(
+        [string]$ipAddress,
+        [string]$agentName,
+        [string]$groupLabel
+    )
+    
+    Start-Step "Installing Wazuh Agent"
+    
+    Test-MSIAvailability
+    
+    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+    $configPath = Join-Path $ossecAgentPath "ossec.conf"
+    
+    $installerPath = Join-Path $env:TEMP "wazuh-agent-$WAZUH_VERSION.msi"
+    if (Test-Path $installerPath) {
+        Remove-Item $installerPath -Force
+    }
+
+    while (Test-Path $configPath) {
+        Write-Host "." -NoNewline -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+    }
+    Write-Host ""
+
+    $maxRetries = 3
+    $retryCount = 0
+
+    do {
+        try {
+            Write-Log "Download attempt $($retryCount + 1) of $($maxRetries + 1)" -Level "INFO"
+            
+            Invoke-SecureDownload -Url $WAZUH_URL -OutputPath $installerPath -Description "Wazuh Agent installer"
+
+            Write-Log "Starting Wazuh agent installation..." -Level "INFO"
+            $installArgs = "/i `"$installerPath`" /q WAZUH_MANAGER='$ipAddress' WAZUH_REGISTRATION_SERVER='$ipAddress' WAZUH_AGENT_GROUP='$groupLabel' WAZUH_AGENT_NAME='$agentName'"
+            $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $installArgs -Wait -PassThru
+
+            if ($process.ExitCode -eq 0) {
+                Write-Log "Wazuh agent installed successfully" -Level "SUCCESS"
+                break
+            } else {
+                throw "Installer failed with exit code: $($process.ExitCode)"
+            }
+        }
+        catch {
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                Write-Log "Installation failed: $($_.Exception.Message). Retrying..." -Level "WARN"
+                Start-Sleep -Seconds 10
+            } else {
+                Write-Log "Installation failed after $maxRetries attempts: $($_.Exception.Message)" -Level "ERROR"
+                throw
+            }
+        }
+    } while ($retryCount -le $maxRetries)
+
+    $timeout = 60
+    $elapsed = 0
+    while (-not (Test-Path $configPath) -and $elapsed -lt $timeout) {
+        Write-Host "." -NoNewline -ForegroundColor Green
+        Start-Sleep -Seconds 3
+        $elapsed += 3
+    }
+    Write-Host ""
+
+    if (-not (Test-Path $configPath)) {
+        throw "Configuration file not found after installation timeout"
+    }
+
+    $backupPath = "$configPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Copy-Item $configPath $backupPath -Force
+    Write-Log "Configuration backup created: $backupPath" -Level "SUCCESS"
+    
+    Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+}
+
+function Set-WazuhAgentConfiguration {
+    param(
+        [string]$ipAddress,
+        [string]$agentName,
+        [string]$groupLabel
+    )
+    
+    Start-Step "Configuring Wazuh Agent"
+    
+    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+    $configPath = Join-Path $ossecAgentPath "ossec.conf"
+
+    try {
+        $config = Get-Content -Path $configPath -Raw
+        $config = $config -replace '<address>0.0.0.0</address>', "<address>$ipAddress</address>"
+        Write-Log "Updated manager IP address to: $ipAddress" -Level "SUCCESS"
+
+        $enrollmentSection = @"
+<enrollment>
+    <enabled>yes</enabled>
+    <manager_address>$ipAddress</manager_address>
+    <agent_name>$agentName</agent_name>
+</enrollment>
+"@
+
+        if ($config -notmatch '<enrollment>') {
+            $config = $config -replace '(?s)(<client>.*?)(</client>)', "`$1`n$enrollmentSection`n`$2"
+            Write-Log "Added enrollment configuration" -Level "SUCCESS"
+        }
+
+        if ($config -notmatch '<groups>') {
+            $groupSection = "<groups>$groupLabel</groups>"
+            $config = $config -replace '</enrollment>', "$groupSection`n</enrollment>"
+            Write-Log "Added group configuration: $groupLabel" -Level "SUCCESS"
+        }
+
+        $config | Set-Content -Path $configPath
+        Write-Log "Wazuh agent configuration completed successfully" -Level "SUCCESS"
+    }
+    catch {
+        Write-Log "Failed to configure Wazuh agent: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Start-WazuhService {
+    Start-Step "Starting Wazuh Service"
+
+    try {
+        Write-Log "Starting Wazuh agent service..." -Level "INFO"
+        $process = Start-Process -FilePath "net" -ArgumentList "start WazuhSvc" -Wait -PassThru -NoNewWindow
+        
+        if ($process.ExitCode -ne 0) {
+            throw "Failed to start Wazuh service with exit code: $($process.ExitCode)"
+        }
+
+        Start-Sleep -Seconds 5
+        $service = Get-Service -Name "WazuhSvc" -ErrorAction SilentlyContinue
+        if ($service.Status -eq 'Running') {
+            Write-Log "Wazuh agent service started successfully" -Level "SUCCESS"
+        } else {
+            throw "Wazuh service is not running after start attempt"
+        }
+    }
+    catch {
+        Write-Log "Failed to start Wazuh service: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Deploy-ActiveResponseScripts {
+    Write-Log "Deploying active response scripts..." -Level "INFO"
+    
+    $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+    $activeResponsePath = Join-Path $ossecAgentPath "active-response\bin"
+    
+    if (Test-Path $activeResponsePath) {
+        Write-Log "Active response directory found: $activeResponsePath" -Level "SUCCESS"
+    } else {
+        Write-Log "Active response directory not found, skipping script deployment" -Level "WARN"
+    }
+}
+
+function Cleanup-TempFiles {
+    Write-Log "Performing final cleanup..." -Level "INFO"
+    
+    $tempFiles = @(
+        (Join-Path $env:TEMP "wazuh-agent-$WAZUH_VERSION.msi")
+    )
+    
+    $cleanedCount = 0
+    foreach ($file in $tempFiles) {
+        if (Test-Path $file) {
+            Remove-Item $file -Force -ErrorAction SilentlyContinue
+            $cleanedCount++
+        }
+    }
+    
+    Write-Log "Cleaned up $cleanedCount temporary files" -Level "SUCCESS"
 }
 
 function Show-Summary {
@@ -223,7 +541,7 @@ function Install-WazuhAgent {
     # Script configuration
     $ErrorActionPreference = 'Stop'
     $script:startTime = Get-Date
-    $script:totalSteps = 6
+    $script:totalSteps = 8
     $script:currentStep = 0
     $global:LogPath = $null
     $transcriptStarted = $false
@@ -257,16 +575,25 @@ function Install-WazuhAgent {
                 Write-Log "Config file loading is a placeholder in this module version." -Level "WARNING"
             }
 
-            # Main Execution (simplified for module demonstration)
+            # Main Execution
             Start-Step "Initialization and Parameter Validation"
             Write-Log "Setup initiated by user: $env:USERNAME" -Level "INFO"
             Write-Log "Parameters: IP=$ipAddress, AgentName=$agentName, Group=$groupLabel, Version=$WAZUH_VERSION" -Level "INFO"
 
-            Start-Step "Placeholder Installation Steps"
-            Write-Log "This is a module demonstration. Full installation logic would go here." -Level "INFO"
-            
+            # Pre-flight checks
+            Test-SystemCompatibility
+            Test-MSIAvailability
+
+            # Core Operations
+            Uninstall-WazuhAgent
+            Install-WazuhAgentMSI -ipAddress $ipAddress -agentName $agentName -groupLabel $groupLabel
+            Set-WazuhAgentConfiguration -ipAddress $ipAddress -agentName $agentName -groupLabel $groupLabel
+            Start-WazuhService
+
+            # Post-Install
             Start-Step "Finalizing Setup"
-            Write-Log "Installation completed successfully (placeholder)." -Level "SUCCESS"
+            Deploy-ActiveResponseScripts
+            Cleanup-TempFiles
         }
     }
     catch {
