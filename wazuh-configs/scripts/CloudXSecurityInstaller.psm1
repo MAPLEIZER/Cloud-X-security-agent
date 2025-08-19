@@ -390,22 +390,7 @@ function Show-Summary {
 
 function Show-Banner {
     # Cloud-X Security ASCII Art Welcome Banner
-    Write-Host "" -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
+   
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                               @@@@@                                                ' -ForegroundColor Blue
@@ -427,23 +412,7 @@ function Show-Banner {
     Write-Host '                             @@@@@  @@ @@@@@@  @@@@@@ @@@@@@@    @   @@                             ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                     @@  @  @@  @@ @@  @  @  @                                      ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
+  
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host ""
     Write-Host "                       CLOUD-X SECURITY WAZUH AGENT ENTERPRISE SETUP                         " -ForegroundColor White -BackgroundColor DarkGreen
@@ -523,7 +492,7 @@ function Install-WazuhAgent {
 
         [Parameter(ParameterSetName='Manual')]
         [Parameter(ParameterSetName='ConfigFile')]
-        [string]$WAZUH_VERSION = '4.7.0-1',
+        [string]$WAZUH_VERSION = '4.9.1-1',
 
         [Parameter(ParameterSetName='Manual')]
         [Parameter(ParameterSetName='ConfigFile')]
