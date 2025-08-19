@@ -1,21 +1,7 @@
 function Show-Banner {
     # Cloud-X Security ASCII Art Welcome Banner
     Write-Host "" -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
+   
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                               @@@@@                                                ' -ForegroundColor Blue
@@ -35,23 +21,6 @@ function Show-Banner {
     Write-Host '                             @@@@@@ @@ @@@@@@  @@  @@ @@@@@@       @@                               ' -ForegroundColor Blue
     Write-Host '                            @@      @@ @@   @@ @   @@ @    @      @ @@                              ' -ForegroundColor Blue
     Write-Host '                             @@@@@  @@ @@@@@@  @@@@@@ @@@@@@@    @   @@                             ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                     @@  @  @@  @@ @@  @  @  @                                      ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
-    Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
     Write-Host '                                                                                                    ' -ForegroundColor Blue
