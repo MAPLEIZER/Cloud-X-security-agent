@@ -598,7 +598,7 @@ function Install-WazuhAgent {
             Test-MSIAvailability
 
             # Core Operations
-            Uninstall-WazuhAgent
+            Uninstall-ExistingWazuhAgent
             Install-WazuhAgentMSI -ipAddress $ipAddress -agentName $agentName -groupLabel $groupLabel
             Set-WazuhAgentConfiguration -ipAddress $ipAddress -agentName $agentName -groupLabel $groupLabel
             Start-WazuhService
