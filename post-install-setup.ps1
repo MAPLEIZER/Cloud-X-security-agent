@@ -236,12 +236,43 @@ if (Test-Path $ossecConf) {
     Write-Warning "  ⚠ ossec.conf not found - manual configuration required"
 }
 
-Write-Host "[7/7] Finalizing setup..." -ForegroundColor Yellow
+Write-Host "[7/9] Creating quarantine directory..." -ForegroundColor Yellow
 
 # Create quarantine directory
 $quarantineDir = "$env:TEMP\wazuh_quarantine"
 New-Item -ItemType Directory -Path $quarantineDir -Force | Out-Null
 Write-Host "  ✓ Quarantine directory created at $quarantineDir" -ForegroundColor Green
+
+Write-Host "[8/9] Restarting Wazuh agent service..." -ForegroundColor Yellow
+
+# Restart Wazuh service to apply configurations
+try {
+    $service = Get-Service -Name "WazuhSvc" -ErrorAction SilentlyContinue
+    if ($service) {
+        Write-Host "  Stopping Wazuh service..." -ForegroundColor Gray
+        Stop-Service -Name "WazuhSvc" -Force -ErrorAction Stop
+        Start-Sleep -Seconds 3
+        
+        Write-Host "  Starting Wazuh service..." -ForegroundColor Gray
+        Start-Service -Name "WazuhSvc" -ErrorAction Stop
+        Start-Sleep -Seconds 2
+        
+        # Verify service is running
+        $serviceStatus = (Get-Service -Name "WazuhSvc").Status
+        if ($serviceStatus -eq 'Running') {
+            Write-Host "  ✓ Wazuh service restarted successfully" -ForegroundColor Green
+        } else {
+            Write-Warning "  ⚠ Wazuh service status: $serviceStatus"
+        }
+    } else {
+        Write-Warning "  ⚠ Wazuh service not found - manual restart may be required"
+    }
+} catch {
+    Write-Warning "  ⚠ Failed to restart Wazuh service: $($_.Exception.Message)"
+    Write-Host "  Please manually restart with: Restart-Service WazuhSvc" -ForegroundColor Yellow
+}
+
+Write-Host "[9/9] Finalizing setup..." -ForegroundColor Yellow
 
 # Set appropriate permissions on the active response script
 if (Test-Path $scriptDest) {
@@ -274,11 +305,11 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Register agent with manager:" -ForegroundColor White
 Write-Host "     /var/ossec/bin/manage_agents (on manager $WazuhManager)" -ForegroundColor Gray
-Write-Host "  2. Restart the Wazuh agent service:" -ForegroundColor White
-Write-Host "     Restart-Service WazuhSvc" -ForegroundColor Gray
-Write-Host "  3. Update your Wazuh manager configuration to include:" -ForegroundColor White
-Write-Host "     - Include the cloudx_active_response.conf file" -ForegroundColor Gray
-Write-Host "     - Include the cloudx_powershell_rules.xml file" -ForegroundColor Gray
+Write-Host "  2. ✓ Wazuh agent service automatically restarted" -ForegroundColor Green
+Write-Host "  3. Manager configuration files created locally:" -ForegroundColor White
+Write-Host "     - Active Response: $activeResponseFile" -ForegroundColor Gray
+Write-Host "     - PowerShell Rules: $rulesFile" -ForegroundColor Gray
+Write-Host "     Copy these to your Wazuh manager and restart it" -ForegroundColor Gray
 Write-Host "" -ForegroundColor White
 Write-Host "Agent Configuration:" -ForegroundColor Yellow
 Write-Host "  Manager: $WazuhManager" -ForegroundColor Cyan
