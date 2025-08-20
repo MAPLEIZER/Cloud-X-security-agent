@@ -1,40 +1,23 @@
-#Requires -RunAsAdministrator
+#================================================================================
+# Cloud-X Security Wazuh Agent Uninstaller Module - GitHub Hosted Version
+# Version: 1.1-GitHub
+# Author: Cloud-X Security Team
+# Description: Self-contained PowerShell module for complete Wazuh agent removal
+# GitHub: https://github.com/MAPLEIZER/Cloud-X-security-agent
+# Usage: 
+#   $moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/CloudXSecurityUninstaller-Standalone.psm1"
+#   $moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
+#   $moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityUninstaller.psm1" -Encoding UTF8
+#   Import-Module "$env:TEMP\CloudXSecurityUninstaller.psm1" -Force
+#   Remove-WazuhAgent -Force
+#================================================================================
 
-<#
-.SYNOPSIS
-    MAPLEX Wazuh Agent Complete Uninstaller
-.DESCRIPTION
-    Comprehensive script to completely remove Wazuh agent from Windows systems
-    Handles registry cleanup, service removal, file cleanup, and system restoration
-.PARAMETER Force
-    Force removal without confirmation prompts
-.PARAMETER KeepLogs
-    Keep log files during uninstallation
-.EXAMPLE
-    .\wazuh-agent-uninstaller.ps1
-.EXAMPLE
-    .\wazuh-agent-uninstaller.ps1 -Force -KeepLogs
-.NOTES
-    MAPLEX Uninstaller Version 1.0
-    Author: MAPLEIZER
-    Created: 2025-08-18 19:01:33 UTC
-#>
-
-param (
-    [switch]$Force,
-    [switch]$KeepLogs
-)
-
-# Script configuration
-$ErrorActionPreference = "Continue"  # Continue on errors for cleanup
-$ProgressPreference = "SilentlyContinue"
-
-# Global tracking
+# Global tracking variables
 $script:startTime = Get-Date
 $script:removedItems = @()
 $script:errors = @()
 
-# Enhanced logging function
+#region Logging Functions
 function Write-Log {
     param(
         [string]$Message,
@@ -42,7 +25,7 @@ function Write-Log {
         [string]$Level = "INFO"
     )
     
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC"
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "[$timestamp] [$Level] $Message"
     
     switch ($Level) {
@@ -54,29 +37,51 @@ function Write-Log {
         "CLEANUP"  { Write-Host $logMessage -ForegroundColor DarkYellow }
     }
 }
+#endregion
 
-# Check for Administrator privileges
+#region Banner Function
+function Show-UninstallBanner {
+    # Cloud-X Security ASCII Art Uninstaller Banner
+    Write-Host "" -ForegroundColor Red
+   
+    Write-Host '                                                                                                    ' -ForegroundColor Red
+    Write-Host '                                                                                                    ' -ForegroundColor Red
+    Write-Host '                                               @@@@@                                                ' -ForegroundColor Red
+    Write-Host '                                            @@@      @@                                             ' -ForegroundColor Red
+    Write-Host '                                          @@             @@                                         ' -ForegroundColor Red
+    Write-Host '                                     @@@@@@         @@@@@@@@@@@                                     ' -ForegroundColor Red
+    Write-Host '                                    @@@           @@@         @@                                    ' -ForegroundColor Red
+    Write-Host '                                   @@           @@@  @@@@@@@@@ @@                                   ' -ForegroundColor Red
+    Write-Host '                                   @@ @       @@@  @@@       @ @@                                   ' -ForegroundColor Red
+    Write-Host '                                   @@ @@    @@@  @@@         @ @@                                   ' -ForegroundColor Red
+    Write-Host '                                    @@   @@    @@@            @@                                    ' -ForegroundColor Red
+    Write-Host '                                     @@@@@@@@@@@       @@@@@@@                                      ' -ForegroundColor Red
+    Write-Host '                                         @@@                                                        ' -ForegroundColor Red
+    Write-Host '                                                                                                    ' -ForegroundColor Red
+    Write-Host '                                    @@                     @@    @    @                             ' -ForegroundColor Red
+    Write-Host '                               @    @@   @@             @  @     @@  @                              ' -ForegroundColor Red
+    Write-Host '                             @@@@@@ @@ @@@@@@  @@  @@ @@@@@@       @@                               ' -ForegroundColor Red
+    Write-Host '                            @@      @@ @@   @@ @   @@ @    @      @ @@                              ' -ForegroundColor Red
+    Write-Host '                             @@@@@  @@ @@@@@@  @@@@@@ @@@@@@@    @   @@                             ' -ForegroundColor Red
+    Write-Host '                                                                                                    ' -ForegroundColor Red
+    Write-Host '                                                                                                    ' -ForegroundColor Red
+    Write-Host '                                                                                                    ' -ForegroundColor Red
+    Write-Host ""
+    Write-Host "                       CLOUD-X SECURITY WAZUH AGENT COMPLETE UNINSTALLER                    " -ForegroundColor White -BackgroundColor DarkRed
+    Write-Host "                              Version 1.1 - Complete Removal                           " -ForegroundColor White -BackgroundColor DarkRed
+    Write-Host "                                   $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')                              " -ForegroundColor Yellow -BackgroundColor DarkRed
+    Write-Host "                                     by CLOUD-X SECURITY                                  " -ForegroundColor Cyan -BackgroundColor DarkRed
+    Write-Host ""
+}
+#endregion
+
+#region Utility Functions
 function Test-Administrator {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# MAPLEX ASCII Banner for Uninstaller
-function Show-UninstallBanner {
-    Write-Host ""
-    Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Red
-    Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Red
-    Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Red
-    Write-Host "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "                    MAPLEX WAZUH AGENT COMPLETE UNINSTALLER                   " -ForegroundColor White -BackgroundColor DarkRed
-    Write-Host "                            Version 1.0 - MAPLEIZER                          " -ForegroundColor White -BackgroundColor DarkRed
-    Write-Host "                              2025-08-18 19:01:33 UTC                        " -ForegroundColor Yellow -BackgroundColor DarkRed
-    Write-Host ""
-}
-
-# Safe item removal with logging
 function Remove-ItemSafe {
     param(
         [string]$Path,
@@ -109,8 +114,9 @@ function Remove-ItemSafe {
         return $false
     }
 }
+#endregion
 
-# Stop Wazuh services
+#region Uninstall Operations
 function Stop-WazuhServices {
     Write-Log "Stopping Wazuh services..." -Level "PROGRESS"
     
@@ -157,7 +163,6 @@ function Stop-WazuhServices {
     Write-Log "Service stop operation completed ($stopped services processed)" -Level "SUCCESS"
 }
 
-# Kill Wazuh processes
 function Stop-WazuhProcesses {
     Write-Log "Terminating Wazuh processes..." -Level "PROGRESS"
     
@@ -188,7 +193,6 @@ function Stop-WazuhProcesses {
     }
 }
 
-# Uninstall via Windows Installer
 function Uninstall-WazuhMSI {
     Write-Log "Attempting MSI uninstallation..." -Level "PROGRESS"
     
@@ -204,7 +208,7 @@ function Uninstall-WazuhMSI {
             $apps = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | 
                    Where-Object { $_.DisplayName -like "*Wazuh*" -or $_.DisplayName -like "*OSSEC*" }
             $wazuhApps += $apps
-        }
+        } 
         catch {
             Write-Log "Error searching registry path $path : $($_.Exception.Message)" -Level "WARN"
         }
@@ -242,7 +246,36 @@ function Uninstall-WazuhMSI {
     return $true
 }
 
-# Remove registry entries
+function Remove-WazuhServices {
+    Write-Log "Removing Wazuh Windows services..." -Level "PROGRESS"
+    
+    $serviceNames = @("WazuhSvc", "OssecSvc", "Wazuh")
+    $removed = 0
+    
+    foreach ($serviceName in $serviceNames) {
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                Write-Log "Removing Windows service: $serviceName" -Level "CLEANUP"
+                
+                # Use sc.exe for reliable service deletion
+                $result = & sc.exe delete $serviceName
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Log "Successfully removed service: $serviceName" -Level "SUCCESS"
+                    $removed++
+                } else {
+                    Write-Log "Failed to remove service $serviceName : $result" -Level "ERROR"
+                }
+            }
+        }
+        catch {
+            Write-Log "Error removing service $serviceName : $($_.Exception.Message)" -Level "ERROR"
+        }
+    }
+    
+    Write-Log "Service removal completed ($removed services removed)" -Level "SUCCESS"
+}
+
 function Remove-WazuhRegistry {
     Write-Log "Cleaning Wazuh registry entries..." -Level "PROGRESS"
     
@@ -266,8 +299,9 @@ function Remove-WazuhRegistry {
     Write-Log "Registry cleanup completed ($removed entries processed)" -Level "SUCCESS"
 }
 
-# Remove installation directories
 function Remove-WazuhDirectories {
+    param([switch]$KeepLogs)
+    
     Write-Log "Removing Wazuh installation directories..." -Level "PROGRESS"
     
     $installPaths = @(
@@ -300,38 +334,6 @@ function Remove-WazuhDirectories {
     Write-Log "Directory cleanup completed ($removed directories processed)" -Level "SUCCESS"
 }
 
-# Remove Windows services
-function Remove-WazuhServices {
-    Write-Log "Removing Wazuh Windows services..." -Level "PROGRESS"
-    
-    $serviceNames = @("WazuhSvc", "OssecSvc", "Wazuh")
-    $removed = 0
-    
-    foreach ($serviceName in $serviceNames) {
-        try {
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($service) {
-                Write-Log "Removing Windows service: $serviceName" -Level "CLEANUP"
-                
-                # Use sc.exe for reliable service deletion
-                $result = & sc.exe delete $serviceName
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Log "Successfully removed service: $serviceName" -Level "SUCCESS"
-                    $removed++
-                } else {
-                    Write-Log "Failed to remove service $serviceName : $result" -Level "ERROR"
-                }
-            }
-        }
-        catch {
-            Write-Log "Error removing service $serviceName : $($_.Exception.Message)" -Level "ERROR"
-        }
-    }
-    
-    Write-Log "Service removal completed ($removed services removed)" -Level "SUCCESS"
-}
-
-# Clean temporary files
 function Remove-TempFiles {
     Write-Log "Cleaning temporary Wazuh files..." -Level "PROGRESS"
     
@@ -339,7 +341,8 @@ function Remove-TempFiles {
         "$env:TEMP\*wazuh*",
         "$env:TEMP\*ossec*",
         "$env:TEMP\agent-automatic-setup*",
-        "$env:TEMP\cloud-x-security-setup*"
+        "$env:TEMP\cloud-x-security-setup*",
+        "$env:TEMP\CloudXSecurityInstaller*"
     )
     
     $cleaned = 0
@@ -360,7 +363,6 @@ function Remove-TempFiles {
     Write-Log "Temporary file cleanup completed ($cleaned files removed)" -Level "SUCCESS"
 }
 
-# Verify complete removal
 function Test-WazuhRemoval {
     Write-Log "Verifying complete Wazuh removal..." -Level "PROGRESS"
     
@@ -397,14 +399,15 @@ function Test-WazuhRemoval {
         return $false
     }
 }
+#endregion
 
-# Show final summary
+#region Summary Function
 function Show-UninstallSummary {
     $duration = (Get-Date) - $script:startTime
     
     Write-Host ""
     Write-Host "================================================================================" -ForegroundColor Red
-    Write-Host "                         MAPLEX UNINSTALL COMPLETED                          " -ForegroundColor Red
+    Write-Host "                         CLOUD-X UNINSTALL COMPLETED                          " -ForegroundColor Red
     Write-Host "================================================================================" -ForegroundColor Red
     Write-Host ""
     
@@ -435,76 +438,91 @@ function Show-UninstallSummary {
     Write-Host "System is now clean and ready for fresh Wazuh installation if needed." -ForegroundColor Cyan
     Write-Host ""
 }
+#endregion
 
-# MAIN EXECUTION
-try {
-    # Check administrator privileges
-    if (-not (Test-Administrator)) {
-        Write-Error "This uninstaller must be run as Administrator."
-        exit 1
-    }
+#region Main Uninstall Function
+function Remove-WazuhAgent {
+    param (
+        [switch]$Force,
+        [switch]$KeepLogs
+    )
 
-    # Show banner
-    Show-UninstallBanner
+    # Initialize tracking
+    $script:startTime = Get-Date
+    $script:removedItems = @()
+    $script:errors = @()
 
-    Write-Log "MAPLEX Wazuh Agent Uninstaller started by $env:USERNAME at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -Level "SUCCESS"
-    Write-Log "Force mode: $(if ($Force) { 'Enabled' } else { 'Disabled' })" -Level "INFO"
-    Write-Log "Keep logs: $(if ($KeepLogs) { 'Yes' } else { 'No' })" -Level "INFO"
-    
-    # Confirmation prompt (unless Force mode)
-    if (-not $Force) {
-        Write-Host ""
-        Write-Host "This will completely remove Wazuh Agent from your system." -ForegroundColor Yellow
-        Write-Host "This action cannot be undone." -ForegroundColor Red
-        Write-Host ""
-        $confirmation = Read-Host "Are you sure you want to continue? (Type 'YES' to confirm)"
+    try {
+        # Check administrator privileges
+        if (-not (Test-Administrator)) {
+            Write-Error "This uninstaller must be run as Administrator."
+            return
+        }
+
+        # Show banner
+        Show-UninstallBanner
+
+        Write-Log "Cloud-X Security Wazuh Agent Uninstaller started by $env:USERNAME at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -Level "SUCCESS"
+        Write-Log "Force mode: $(if ($Force) { 'Enabled' } else { 'Disabled' })" -Level "INFO"
+        Write-Log "Keep logs: $(if ($KeepLogs) { 'Yes' } else { 'No' })" -Level "INFO"
         
-        if ($confirmation -ne "YES") {
-            Write-Log "Uninstallation cancelled by user" -Level "WARN"
-            exit 0
+        # Confirmation prompt (unless Force mode)
+        if (-not $Force) {
+            Write-Host ""
+            Write-Host "This will completely remove Wazuh Agent from your system." -ForegroundColor Yellow
+            Write-Host "This action cannot be undone." -ForegroundColor Red
+            Write-Host ""
+            $confirmation = Read-Host "Are you sure you want to continue? (Type 'YES' to confirm)"
+            
+            if ($confirmation -ne "YES") {
+                Write-Log "Uninstallation cancelled by user" -Level "WARN"
+                return
+            }
+        }
+        
+        Write-Host ""
+        Write-Log "Starting comprehensive Wazuh removal process..." -Level "PROGRESS"
+        
+        # Execute uninstall steps
+        Stop-WazuhServices
+        Stop-WazuhProcesses
+        Uninstall-WazuhMSI
+        Remove-WazuhServices
+        Remove-WazuhRegistry
+        Remove-WazuhDirectories -KeepLogs:$KeepLogs
+        Remove-TempFiles
+        
+        # Verify removal
+        $removalSuccess = Test-WazuhRemoval
+        
+        # Show final summary
+        Show-UninstallSummary
+        
+        if ($removalSuccess) {
+            Write-Host "🎉 UNINSTALL COMPLETED SUCCESSFULLY! 🎉" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️  UNINSTALL COMPLETED WITH WARNINGS ⚠️" -ForegroundColor Yellow
         }
     }
-    
-    Write-Host ""
-    Write-Log "Starting comprehensive Wazuh removal process..." -Level "PROGRESS"
-    
-    # Execute uninstall steps
-    Stop-WazuhServices
-    Stop-WazuhProcesses
-    Uninstall-WazuhMSI
-    Remove-WazuhServices
-    Remove-WazuhRegistry
-    Remove-WazuhDirectories
-    Remove-TempFiles
-    
-    # Verify removal
-    $removalSuccess = Test-WazuhRemoval
-    
-    # Show final summary
-    Show-UninstallSummary
-    
-    if ($removalSuccess) {
-        Write-Host "🎉 UNINSTALL COMPLETED SUCCESSFULLY! 🎉" -ForegroundColor Green
-        exit 0
-    } else {
-        Write-Host "⚠️  UNINSTALL COMPLETED WITH WARNINGS ⚠️" -ForegroundColor Yellow
-        exit 1
+    catch {
+        Write-Host ""
+        Write-Host "================================================================================" -ForegroundColor Red
+        Write-Host "                           UNINSTALL FAILED                                  " -ForegroundColor Red
+        Write-Host "================================================================================" -ForegroundColor Red
+        Write-Host ""
+        
+        Write-Log "Uninstall failed: $($_.Exception.Message)" -Level "ERROR"
+        Write-Log "Failed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -Level "ERROR"
+        
+        Write-Host ""
+        Write-Host "Manual cleanup may be required." -ForegroundColor Yellow
+        Write-Host "Check the error messages above for details." -ForegroundColor Yellow
+        Write-Host ""
+        
+        throw
     }
 }
-catch {
-    Write-Host ""
-    Write-Host "================================================================================" -ForegroundColor Red
-    Write-Host "                           UNINSTALL FAILED                                  " -ForegroundColor Red
-    Write-Host "================================================================================" -ForegroundColor Red
-    Write-Host ""
-    
-    Write-Log "Uninstall failed: $($_.Exception.Message)" -Level "ERROR"
-    Write-Log "Failed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')" -Level "ERROR"
-    
-    Write-Host ""
-    Write-Host "Manual cleanup may be required." -ForegroundColor Yellow
-    Write-Host "Check the error messages above for details." -ForegroundColor Yellow
-    Write-Host ""
-    
-    exit 1
-}
+#endregion
+
+# Export the main function
+Export-ModuleMember -Function Remove-WazuhAgent
