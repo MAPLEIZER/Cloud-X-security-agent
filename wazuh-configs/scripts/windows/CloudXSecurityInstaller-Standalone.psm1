@@ -290,14 +290,10 @@ function Install-WazuhAgentMSI {
         [string]$groupLabel
     )
     
-    # Determine the correct IP based on group BEFORE installation
-    $managerIP = if ($groupLabel -eq "Personal") {
-        "192.168.100.37"  # Internal network IP for Personal group
-    } else {
-        $ipAddress  # Use provided public IP for other groups
-    }
+    # Use local network IP for all groups (local network setup)
+    $managerIP = "192.168.100.37"  # Internal network IP for all groups
     
-    Write-Log "Group: $groupLabel - Using Manager IP: $managerIP" -Level "INFO"
+    Write-Log "Group: $groupLabel - Using Local Network Manager IP: $managerIP" -Level "INFO"
     
     Start-Step "Installing Wazuh Agent"
     
@@ -367,14 +363,10 @@ function Set-WazuhAgentConfiguration {
     
     Start-Step "Configuring Wazuh Agent"
     
-    # Determine the correct IP based on group
-    $configIP = if ($groupLabel -eq "Personal") {
-        "192.168.100.37"  # Internal network IP for Personal group
-    } else {
-        $ipAddress  # Use provided public IP for other groups
-    }
+    # Use local network IP for all groups (local network setup)
+    $configIP = "192.168.100.37"  # Internal network IP for all groups
     
-    Write-Log "Group: $groupLabel - Using IP: $configIP" -Level "INFO"
+    Write-Log "Group: $groupLabel - Using Local Network IP: $configIP" -Level "INFO"
     
     $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
     $configPath = Join-Path $ossecAgentPath "ossec.conf"
@@ -420,9 +412,7 @@ function Set-WazuhAgentConfiguration {
         $config | Set-Content -Path $configPath
         Write-Log "Wazuh agent configuration completed successfully" -Level "SUCCESS"
         
-        if ($groupLabel -eq "Personal") {
-            Write-Log "Personal group detected - configured for internal network (192.168.100.37)" -Level "INFO"
-        }
+        Write-Log "Local network setup - all groups use internal network (192.168.100.37)" -Level "INFO"
     }
     catch {
         Write-Log "Failed to configure Wazuh agent: $($_.Exception.Message)" -Level "ERROR"
@@ -503,12 +493,8 @@ function Show-Summary {
         [string]$groupLabel
     )
 
-    # Determine the actual IP used based on group
-    $actualIP = if ($groupLabel -eq "Personal") {
-        "192.168.100.37"  # Internal network IP for Personal group
-    } else {
-        $ipAddress  # Use provided public IP for other groups
-    }
+    # Use local network IP for all groups (local network setup)
+    $actualIP = "192.168.100.37"  # Internal network IP for all groups
 
     $endTime = Get-Date
     $duration = New-TimeSpan -Start $startTime -End $endTime
@@ -528,10 +514,8 @@ function Show-Summary {
     Write-Host "- Log File:      $($global:LogPath)" -ForegroundColor White
     Write-Host ""
     
-    if ($groupLabel -eq "Personal") {
-        Write-Host "Note: Personal group uses internal network IP (192.168.100.37)" -ForegroundColor Yellow
-        Write-Host ""
-    }
+    Write-Host "Note: Local network setup - all groups use internal network IP (192.168.100.37)" -ForegroundColor Yellow
+    Write-Host ""
 }
 #endregion
 
@@ -613,7 +597,7 @@ function Install-WazuhAgent {
         Write-Host ""
         Write-Host "Troubleshooting tips:" -ForegroundColor Yellow
         Write-Host "* Ensure you're running as Administrator." -ForegroundColor White
-        Write-Host "* Check your internet connection and that the manager IP ($ipAddress) is reachable." -ForegroundColor White
+        Write-Host "* Check your network connection and that the manager IP (192.168.100.37) is reachable." -ForegroundColor White
         Write-Host "* Review the log file for details: $($global:LogPath)" -ForegroundColor White
         Write-Host ""
         throw

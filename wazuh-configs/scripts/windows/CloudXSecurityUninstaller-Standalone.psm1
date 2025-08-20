@@ -429,8 +429,8 @@ function Show-UninstallSummary {
     if ($script:errors.Count -gt 0) {
         Write-Host ""
         Write-Host "Errors Encountered:" -ForegroundColor Yellow
-        foreach ($error in $script:errors) {
-            Write-Host "  ✗ $error" -ForegroundColor Red
+        foreach ($errorMsg in $script:errors) {
+            Write-Host "  ✗ $errorMsg" -ForegroundColor Red
         }
     }
     
