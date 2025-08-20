@@ -2,12 +2,12 @@
 
 # Cloud-X Security Wazuh Agent Installer
 
-Enterprise-grade modular Wazuh agent installer with enhanced MSI service management, smart IP configuration, and robust error handling.
+Enterprise-grade standalone Wazuh agent installer and uninstaller with enhanced MSI service management, smart IP configuration, and robust error handling.
 
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://github.com/PowerShell/PowerShell)
 [![Windows](https://img.shields.io/badge/Windows-10%2B-green.svg)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.1-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-3.1--GitHub-orange.svg)](CHANGELOG.md)
 
 ## 📋 Table of Contents
 
@@ -27,8 +27,8 @@ Enterprise-grade modular Wazuh agent installer with enhanced MSI service managem
 - **Administrator Enforcement** - Scripts require elevated privileges to run, ensuring system-level changes are authorized.
 - **Audit Trail Generation** - Complete PowerShell transcript logging captures all actions for security and troubleshooting.
 
-### ⚙️ **Modular Architecture**
-- **Organized Module Structure** - Separated into Core, Installation, and UI modules for better maintainability
+### ⚙️ **Standalone Architecture**
+- **Self-Contained Modules** - Standalone PowerShell modules with all dependencies included
 - **Enhanced MSI Management** - Automatic Windows Installer service restart when busy or hanging
 - **Smart IP Configuration** - Personal group agents automatically use internal network IP (192.168.100.37)
 - **Parameter-driven** - All key settings can be passed as command-line arguments
@@ -55,21 +55,21 @@ Enterprise-grade modular Wazuh agent installer with enhanced MSI service managem
 
 ## ⚡ Quick Start
 
-Run the following command in an **elevated (Administrator)** PowerShell session to download and use the installer module:
+Run the following command in an **elevated (Administrator)** PowerShell session to download and use the standalone installer module:
 
 ```powershell
-# Download and import the module, then run the installer
+# Download and import the standalone installer module
 $params = @{
     ipAddress  = '192.168.1.100'
     agentName  = 'WIN-AGENT-01'
     groupLabel = 'windows_servers'
 }
 
-# Method 1: Direct module download and import
-$moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/CloudXSecurityInstaller.psm1"
+# Method 1: Direct standalone module download and import
+$moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityInstaller-Standalone.psm1"
 $moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
-$moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller.psm1" -Encoding UTF8
-Import-Module "$env:TEMP\CloudXSecurityInstaller.psm1" -Force
+$moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Encoding UTF8
+Import-Module "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Force
 Install-WazuhAgent @params
 ```
 
@@ -78,7 +78,7 @@ Install-WazuhAgent @params
 ```powershell
 # Method 2: Clone repository and import locally
 git clone https://github.com/MAPLEIZER/Cloud-X-security-agent.git
-Import-Module ".\Cloud-X-security-agent\wazuh-configs\scripts\CloudXSecurityInstaller.psm1" -Force
+Import-Module ".\Cloud-X-security-agent\wazuh-configs\scripts\windows\CloudXSecurityInstaller-Standalone.psm1" -Force
 Install-WazuhAgent @params
 ```
 
@@ -113,18 +113,19 @@ The `agents` directory contains templates for `ossec.conf`. You can define defau
 
 ## 🛡️ Uninstaller
 
-A powerful, standalone uninstaller is included to completely and safely remove all traces of the Wazuh agent.
+A powerful, standalone uninstaller module is included to completely and safely remove all traces of the Wazuh agent.
 
 ### **How to Run the Uninstaller**
 
-Navigate to the `wazuh-configs/scripts` directory to run the uninstaller.
+Download and run the standalone uninstaller module:
 
 ```powershell
-# Option 1: Using the main installer script
-.\install-agent.ps1 -Uninstall
-
-# Option 2: Running the uninstaller script directly
-.\uninstall-agent.ps1
+# Download and import the standalone uninstaller module
+$uninstallerUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityUninstaller-Standalone.psm1"
+$uninstallerContent = (Invoke-WebRequest -Uri $uninstallerUrl -UseBasicParsing).Content
+$uninstallerContent | Out-File -FilePath "$env:TEMP\CloudXSecurityUninstaller-Standalone.psm1" -Encoding UTF8
+Import-Module "$env:TEMP\CloudXSecurityUninstaller-Standalone.psm1" -Force
+Remove-WazuhAgent
 ```
 
 ### **Uninstaller Parameters**
@@ -159,45 +160,29 @@ wazuh-configs/
 │       └── database-servers/
 │           └── ossec.conf           # Database server agents config
 ├── scripts/
-│   ├── CloudXSecurityInstaller.psm1  # Main installer module
-│   ├── Modules/
-│   │   ├── README.md                 # Module documentation
-│   │   ├── Core/                     # Core system functionality
-│   │   │   ├── Logging.psm1         # Logging and progress tracking
-│   │   │   └── Utilities.psm1       # System utilities and MSI management
-│   │   ├── Installation/             # Installation-specific modules
-│   │   │   ├── WazuhOperations.psm1 # Wazuh agent operations
-│   │   │   └── PostInstall.psm1     # Post-installation tasks
-│   │   └── UI/                      # User interface components
-│   │       └── Banner.psm1          # Installation banner display
-│   ├── Uninstaller-Modules/          # PowerShell modules for the uninstaller
-│   ├── install-agent.ps1             # Windows installation script
-│   ├── uninstall-agent.ps1           # Windows uninstallation script
-│   ├── install-agent.sh              # (Placeholder) Linux installation script
-│   └── update-config.sh              # (Placeholder) Configuration update script
+│   ├── windows/
+│   │   ├── CloudXSecurityInstaller-Standalone.psm1   # Standalone installer module
+│   │   └── CloudXSecurityUninstaller-Standalone.psm1 # Standalone uninstaller module
+│   └── remove-threat.py             # Active response script for threat removal
 └── README.md
 ```
 
-## 🏗️ Module Architecture
+## 🏗️ Standalone Module Architecture
 
-The installer uses a modular architecture for better maintainability:
+The installer and uninstaller use self-contained standalone modules for simplified deployment:
 
-### **Core Modules** (`/Modules/Core/`)
-- **Logging.psm1**: Centralized logging with color-coded output and file logging
-- **Utilities.psm1**: System checks, MSI management, and Windows Installer service restart
-
-### **Installation Modules** (`/Modules/Installation/`)
-- **WazuhOperations.psm1**: Core installation logic with enhanced error handling
-- **PostInstall.psm1**: Summary display, cleanup, and active response deployment
-
-### **UI Modules** (`/Modules/UI/`)
-- **Banner.psm1**: Professional branding and installation banner
-
-### **Key Features**
+### **Standalone Installer Module** (`windows/CloudXSecurityInstaller-Standalone.psm1`)
+- **All-in-One Design**: Contains all dependencies inline - no external module requirements
 - **Enhanced MSI Management**: Automatic service restart when Windows Installer is busy
 - **Smart IP Configuration**: Personal group uses internal IP (192.168.100.37)
-- **Robust Error Handling**: Detailed MSI log analysis and retry logic
-- **Comprehensive Logging**: Color-coded console output with file logging support
+- **Professional UI**: ASCII art banner and color-coded logging
+- **Comprehensive Error Handling**: Detailed MSI log analysis and retry logic
+
+### **Standalone Uninstaller Module** (`windows/CloudXSecurityUninstaller-Standalone.psm1`)
+- **Complete Removal**: Stops services, removes MSI, cleans registry and files
+- **Safety Features**: Confirmation prompts with Force override option
+- **Detailed Logging**: Color-coded progress tracking and summary display
+- **Self-Contained**: No external dependencies required
 
 ---
 
