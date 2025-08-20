@@ -1,6 +1,12 @@
 # Cloud-X Security - Post Wazuh Agent Installation Setup
 # Integrates threat response scripts, PowerShell logging, and malicious scan rules
 # Copyright (C) 2023, Cloud-X Security
+# GitHub: https://github.com/MAPLEIZER/Cloud-X-security-agent
+# Usage: 
+#   $postInstallUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/post-install-setup.ps1"
+#   $postInstallScript = (Invoke-WebRequest -Uri $postInstallUrl -UseBasicParsing).Content
+#   $postInstallScript | Out-File -FilePath "$env:TEMP\CloudX-PostInstall-Setup.ps1" -Encoding UTF8
+#   & "$env:TEMP\CloudX-PostInstall-Setup.ps1"
 
 param(
     [string]$WazuhPath = "C:\Program Files (x86)\ossec-agent",
@@ -31,15 +37,16 @@ Write-Host "[1/6] Setting up active response scripts..." -ForegroundColor Yellow
 $activeResponseDir = Join-Path $WazuhPath "active-response\bin"
 New-Item -ItemType Directory -Path $activeResponseDir -Force | Out-Null
 
-# Copy threat response script
-$scriptSource = Join-Path $PSScriptRoot "wazuh-configs\scripts\remove-threat.py"
+# Download threat response script from GitHub
+$scriptUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/remove-threat.py"
 $scriptDest = Join-Path $activeResponseDir "remove-threat.py"
 
-if (Test-Path $scriptSource) {
-    Copy-Item $scriptSource $scriptDest -Force
-    Write-Host "  ✓ Threat response script installed" -ForegroundColor Green
-} else {
-    Write-Warning "  ⚠ Threat response script not found at $scriptSource"
+try {
+    Write-Host "  Downloading remove-threat.py from GitHub..." -ForegroundColor Gray
+    Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptDest -UseBasicParsing
+    Write-Host "  ✓ Threat response script downloaded and installed" -ForegroundColor Green
+} catch {
+    Write-Warning "  ⚠ Failed to download threat response script: $($_.Exception.Message)"
 }
 
 Write-Host "[2/6] Installing Python dependencies..." -ForegroundColor Yellow
