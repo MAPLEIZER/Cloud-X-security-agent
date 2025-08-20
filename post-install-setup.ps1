@@ -44,9 +44,14 @@ $scriptDest = Join-Path $activeResponseDir "remove-threat.py"
 try {
     Write-Host "  Downloading remove-threat.py from GitHub..." -ForegroundColor Gray
     Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptDest -UseBasicParsing
-    Write-Host "  ✓ Threat response script downloaded and installed" -ForegroundColor Green
+    if (Test-Path $scriptDest) {
+        Write-Host "  ✓ Threat response script downloaded and installed" -ForegroundColor Green
+    } else {
+        Write-Warning "  ⚠ Download completed but script file not found"
+    }
 } catch {
     Write-Warning "  ⚠ Failed to download threat response script: $($_.Exception.Message)"
+    Write-Host "  Attempting to continue without active response script..." -ForegroundColor Yellow
 }
 
 Write-Host "[2/6] Installing Python dependencies..." -ForegroundColor Yellow
@@ -192,6 +197,7 @@ $activeResponseConfig = @"
 "@
 
 $configDir = Join-Path $WazuhPath "etc"
+New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 $activeResponseFile = Join-Path $configDir "cloudx_active_response.conf"
 $activeResponseConfig | Out-File -FilePath $activeResponseFile -Encoding UTF8
 Write-Host "  ✓ Active response configuration created" -ForegroundColor Green
@@ -238,14 +244,18 @@ New-Item -ItemType Directory -Path $quarantineDir -Force | Out-Null
 Write-Host "  ✓ Quarantine directory created at $quarantineDir" -ForegroundColor Green
 
 # Set appropriate permissions on the active response script
-try {
-    $acl = Get-Acl $scriptDest
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("SYSTEM", "FullControl", "Allow")
-    $acl.SetAccessRule($accessRule)
-    Set-Acl $scriptDest $acl
-    Write-Host "  ✓ Script permissions configured" -ForegroundColor Green
-} catch {
-    Write-Warning "  ⚠ Could not set script permissions: $($_.Exception.Message)"
+if (Test-Path $scriptDest) {
+    try {
+        $acl = Get-Acl $scriptDest
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("SYSTEM", "FullControl", "Allow")
+        $acl.SetAccessRule($accessRule)
+        Set-Acl $scriptDest $acl
+        Write-Host "  ✓ Script permissions configured" -ForegroundColor Green
+    } catch {
+        Write-Warning "  ⚠ Could not set script permissions: $($_.Exception.Message)"
+    }
+} else {
+    Write-Warning "  ⚠ Script file not found - permissions not set"
 }
 
 Write-Host ""
