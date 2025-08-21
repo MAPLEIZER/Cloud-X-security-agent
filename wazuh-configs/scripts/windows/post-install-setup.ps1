@@ -145,7 +145,7 @@ function Install-PythonDependencies {
             & python -m pip install $package --quiet --disable-pip-version-check
             Write-Log "Installed Python package: $package" -Level "SUCCESS"
         } catch {
-            Write-Log "Failed to install Python package $package: $($_.Exception.Message)" -Level "WARNING"
+            Write-Log ("Failed to install Python package " + $package + ": " + $_.Exception.Message) -Level "WARNING"
         }
     }
 }
