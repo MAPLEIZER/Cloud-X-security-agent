@@ -25,21 +25,26 @@ if (-not $isAdmin) {
     exit 1
 }
 
-# Verify Wazuh agent is installed
-if (-not (Test-Path $WazuhPath)) {
-    Write-Error "Wazuh agent not found at $WazuhPath"
-    exit 1
+# Get Wazuh agent installation path
+$possiblePaths = @(
+    (Join-Path -Path $env:ProgramFiles -ChildPath "ossec-agent"),
+    (Join-Path -Path ${env:ProgramFiles(x86)} -ChildPath "ossec-agent")
+)
+$WazuhPath = $possiblePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if (-not $WazuhPath) {
+    Write-Warning "Wazuh agent not found. Some features may not work."
 }
 
 Write-Host "[1/6] Setting up active response scripts..." -ForegroundColor Yellow
 
 # Create active response directory if it doesn't exist
-$activeResponseDir = Join-Path $WazuhPath "active-response\bin"
+$activeResponseDir = Join-Path -Path $WazuhPath -ChildPath "active-response\bin"
 New-Item -ItemType Directory -Path $activeResponseDir -Force | Out-Null
 
 # Download threat response script from GitHub
 $scriptUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/remove-threat.py"
-$scriptDest = Join-Path $activeResponseDir "remove-threat.py"
+$scriptDest = Join-Path -Path $activeResponseDir -ChildPath "remove-threat.py"
 
 try {
     Write-Host "  Downloading remove-threat.py from GitHub..." -ForegroundColor Gray
@@ -139,24 +144,21 @@ try {
     Write-Warning "  ⚠ Failed to enable PowerShell logging: $($_.Exception.Message)"
 }
 
-Write-Host "[6/8] Configuring Wazuh rules..." -ForegroundColor Yellow
+# [6/8] Configuring Wazuh rules... (Temporarily Disabled)
+# Write-Host "[6/8] Configuring Wazuh rules..." -ForegroundColor Yellow
 
-# Create custom rules directory
-$rulesDir = Join-Path $WazuhPath "ruleset\rules"
-New-Item -ItemType Directory -Path $rulesDir -Force | Out-Null
+# # Download and install PowerShell monitoring rules
+# $rulesUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/rules/cloudx_powershell_rules.xml"
+# $rulesFile = Join-Path -Path $WazuhPath -ChildPath "ruleset\rules\cloudx_powershell_rules.xml"
+# try {
+#     Write-Host "  Downloading PowerShell monitoring rules..." -ForegroundColor Gray
+#     Invoke-WebRequest -Uri $rulesUrl -OutFile $rulesFile -UseBasicParsing
+#     Write-Host "  ✓ PowerShell monitoring rules installed" -ForegroundColor Green
+# } catch {
+#     Write-Warning "  ⚠ Failed to download PowerShell rules: $($_.Exception.Message)"
+# }
 
-# Download PowerShell malicious scan rules from GitHub
-$rulesFile = Join-Path $rulesDir "cloudx_powershell_rules.xml"
-$rulesUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/Powershell-Malicious-Scan.xml"
-try {
-    Write-Host "  Downloading PowerShell monitoring rules..." -ForegroundColor Gray
-    Invoke-WebRequest -Uri $rulesUrl -OutFile $rulesFile -UseBasicParsing
-} catch {
-    Write-Warning "  ⚠ Failed to download PowerShell rules: $($_.Exception.Message)"
-}
-Write-Host "  ✓ PowerShell monitoring rules installed" -ForegroundColor Green
-
-Write-Host "[7/8] Configuring active response..." -ForegroundColor Yellow
+Write-Host "[6/7] Configuring active response..." -ForegroundColor Yellow
 
 # Create active response configuration
 $activeResponseConfig = @"
@@ -175,13 +177,13 @@ $activeResponseConfig = @"
 </active-response>
 "@
 
-$configDir = Join-Path $WazuhPath, "etc"
+$configDir = Join-Path -Path $WazuhPath -ChildPath "etc"
 New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 $activeResponseFile = Join-Path $configDir "cloudx_active_response.conf"
 $activeResponseConfig | Out-File -FilePath $activeResponseFile -Encoding UTF8
 Write-Host "  ✓ Active response configuration created" -ForegroundColor Green
 
-Write-Host "[8/8] Configuring Wazuh agent connection..." -ForegroundColor Yellow
+Write-Host "[7/7] Configuring Wazuh agent connection..." -ForegroundColor Yellow
 
 # Configure Wazuh agent with manager address and dynamic agent name
 $ossecConf = Join-Path $WazuhPath "ossec.conf"
