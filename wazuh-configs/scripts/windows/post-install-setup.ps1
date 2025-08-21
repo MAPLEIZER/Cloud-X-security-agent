@@ -62,6 +62,7 @@ foreach ($package in $pythonPackages) {
     try {
         & python -m pip install $package --quiet
         Write-Host "  ✓ Installed $package" -ForegroundColor Green
+    }
     } catch {
         Write-Warning "  ⚠ Failed to install $package - some features may not work"
     }
