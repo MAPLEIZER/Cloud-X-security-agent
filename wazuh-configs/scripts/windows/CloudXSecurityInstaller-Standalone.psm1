@@ -5,7 +5,7 @@
 # Description: Self-contained PowerShell module for automated Wazuh agent installation and configuration
 # GitHub: https://github.com/MAPLEIZER/Cloud-X-security-agent
 # Usage: 
-#   $moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/CloudXSecurityInstaller-Standalone.psm1"
+#   $moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityInstaller-Standalone.psm1"
 #   $moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
 #   $moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller.psm1" -Encoding UTF8
 #   Import-Module "$env:TEMP\CloudXSecurityInstaller.psm1" -Force
@@ -464,6 +464,37 @@ function Install-ActiveResponseScripts {
     }
 }
 
+function Invoke-PostInstallSetup {
+    Start-Step "Running Post-Installation Setup"
+    
+    $postInstallScriptUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/post-install-setup.ps1"
+    $tempScriptPath = Join-Path $env:TEMP "post-install-setup.ps1"
+    
+    try {
+        Write-Log "Downloading post-install setup script..." -Level "INFO"
+        Get-FileWithRetry -Url $postInstallScriptUrl -OutputPath $tempScriptPath
+        
+        Write-Log "Executing post-install setup script..." -Level "INFO"
+        $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
+        
+        $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$tempScriptPath`" -wazuh_path `"$ossecAgentPath`"" -Wait -PassThru -NoNewWindow
+        
+        if ($process.ExitCode -ne 0) {
+            throw "Post-install script failed with exit code: $($process.ExitCode)"
+        }
+        
+        Write-Log "Post-installation setup completed successfully." -Level "SUCCESS"
+    }
+    catch {
+        Write-Log "Failed to run post-installation setup: $($_.Exception.Message)" -Level "ERROR"
+    }
+    finally {
+        if (Test-Path $tempScriptPath) {
+            Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Remove-TempFiles {
     Write-Log "Cleaning up temporary files..." -Level "INFO"
     
@@ -539,7 +570,7 @@ function Install-WazuhAgent {
 
     # Initialize logging and progress tracking
     $script:startTime = Get-Date
-    $script:totalSteps = 8
+    $script:totalSteps = 9
     $script:currentStep = 0
     
     # Set up logging
@@ -584,6 +615,7 @@ function Install-WazuhAgent {
         # Post-Install
         Start-Step "Finalizing Setup"
         Install-ActiveResponseScripts
+        Invoke-PostInstallSetup
         Remove-TempFiles
     }
     catch {

@@ -3,7 +3,7 @@
 # Copyright (C) 2023, Cloud-X Security
 # GitHub: https://github.com/MAPLEIZER/Cloud-X-security-agent
 # Usage: 
-#   $postInstallUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/post-install-setup.ps1"
+#   $postInstallUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/post-install-setup.ps1"
 #   $postInstallScript = (Invoke-WebRequest -Uri $postInstallUrl -UseBasicParsing).Content
 #   $postInstallScript | Out-File -FilePath "$env:TEMP\CloudX-PostInstall-Setup.ps1" -Encoding UTF8
 #   & "$env:TEMP\CloudX-PostInstall-Setup.ps1"
@@ -38,7 +38,7 @@ $activeResponseDir = Join-Path $WazuhPath "active-response\bin"
 New-Item -ItemType Directory -Path $activeResponseDir -Force | Out-Null
 
 # Download threat response script from GitHub
-$scriptUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/remove-threat.py"
+$scriptUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/remove-threat.py"
 $scriptDest = Join-Path $activeResponseDir "remove-threat.py"
 
 try {
@@ -97,84 +97,15 @@ Write-Host "[4/6] Configuring Wazuh rules..." -ForegroundColor Yellow
 $rulesDir = Join-Path $WazuhPath "ruleset\rules"
 New-Item -ItemType Directory -Path $rulesDir -Force | Out-Null
 
-# Create PowerShell malicious scan rules (integrated from XML)
-$powershellRules = @"
-<!-- Cloud-X Security PowerShell Monitoring Rules -->
-<group name="windows,powershell,cloudx">
-  <!-- General PowerShell Events -->
-  <rule id="100535" level="3">
-    <if_sid>60009</if_sid>
-    <field name="win.system.providerName">^(PowerShell|Microsoft-Windows-PowerShell)$</field>
-    <field name="win.system.severityValue">INFO|VERBOSE|WARNING|ERROR|CRITICAL</field>
-    <mitre>
-      <id>T1059.001</id>
-    </mitre>
-    <options>no_full_log</options>
-    <description>PowerShell EventLog Monitoring - Cloud-X Security</description>
-  </rule>
-
-  <!-- Frequency-based alert: multiple errors in short time -->
-  <rule id="100539" level="12" frequency="8" timeframe="60">
-    <if_matched_sid>100535</if_matched_sid>
-    <field name="win.system.severityValue">ERROR|CRITICAL</field>
-    <description>Multiple PowerShell errors detected - Possible attack</description>
-    <mitre>
-      <id>T1059.001</id>
-    </mitre>
-    <options>no_full_log</options>
-    <group>pci_dss_10.6.1,attack_execution,</group>
-  </rule>
-
-  <!-- Script execution monitoring -->
-  <rule id="100541" level="3">
-    <if_sid>91802</if_sid>
-    <field name="win.system.severityValue">VERBOSE|INFO</field>
-    <description>PowerShell script executed: `$(win.eventdata.scriptBlockText)`</description>
-    <mitre>
-      <id>T1059.001</id>
-    </mitre>
-    <options>no_full_log</options>
-  </rule>
-
-  <!-- Malicious PowerShell command detection -->
-  <rule id="100543" level="12">
-    <if_sid>100541</if_sid>
-    <pcre2>(?i)(invoke-expression|iex|downloadstring|downloadfile|bypass|hidden|encodedcommand|invoke-shellcode|invoke-mimikatz)</pcre2>
-    <description>Malicious PowerShell command detected: `$(win.eventdata.scriptBlockText)`</description>
-    <mitre>
-      <id>T1059.001</id>
-    </mitre>
-    <options>no_full_log</options>
-    <group>windows_powershell_highrisk,attack_execution,</group>
-  </rule>
-
-  <!-- Detect PowerShell Obfuscation -->
-  <rule id="100546" level="13">
-    <if_sid>61605</if_sid>
-    <field name="win.system.eventID">^4688$</field>
-    <pcre2>(?i)powershell.+(-e|-en|-enc|-enco|-encod|-encode|-encoded|-encodedc|-encodedco|-encodedcom|-encodedcomm|-encodedcomma|-encodedcomman|-encodedcommand)\s+\w+</pcre2>
-    <description>Suspicious PowerShell execution with encoded command detected</description>
-    <mitre>
-      <id>T1027</id>
-    </mitre>
-    <group>windows_powershell_highrisk,technique_obfuscation,</group>
-  </rule>
-
-  <!-- Detect In-memory Download and Execution -->
-  <rule id="100547" level="12">
-    <if_sid>100541</if_sid>
-    <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)IEX.*New-Object.*Net\.WebClient.*DownloadString</field>
-    <description>Malicious PowerShell script detected: In-memory download and execution</description>
-    <mitre>
-      <id>T1059.001</id>
-    </mitre>
-    <group>windows_powershell_highrisk,attack_execution,</group>
-  </rule>
-</group>
-"@
-
+# Download PowerShell malicious scan rules from GitHub
 $rulesFile = Join-Path $rulesDir "cloudx_powershell_rules.xml"
-$powershellRules | Out-File -FilePath $rulesFile -Encoding UTF8
+$rulesUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/Powershell-Malicious-Scan.xml"
+try {
+    Write-Host "  Downloading PowerShell monitoring rules..." -ForegroundColor Gray
+    Invoke-WebRequest -Uri $rulesUrl -OutFile $rulesFile -UseBasicParsing
+} catch {
+    Write-Warning "  ⚠ Failed to download PowerShell rules: $($_.Exception.Message)"
+}
 Write-Host "  ✓ PowerShell monitoring rules installed" -ForegroundColor Green
 
 Write-Host "[5/6] Configuring active response..." -ForegroundColor Yellow

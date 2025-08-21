@@ -1,6 +1,4 @@
-<var name="MS_FREQ">8</var>
-
-<group name="windows,powershell,">
+<group name="windows,powershell,cloudx">
   <!-- General PowerShell Events -->
   <rule id="100535" level="3">
     <if_sid>60009</if_sid>
@@ -14,7 +12,7 @@
   </rule>
 
   <!-- Frequency-based alert: multiple errors in short time -->
-  <rule id="100539" level="12" frequency="$MS_FREQ" timeframe="60">
+    <rule id="100539" level="12" frequency="8" timeframe="60">
     <if_matched_sid>100535</if_matched_sid>
     <field name="win.system.severityValue">ERROR|CRITICAL</field>
     <description>Short-time multiple Windows Powershell error/critical events</description>
@@ -22,7 +20,7 @@
       <id>T1059.001</id>
     </mitre>
     <options>no_full_log</options>
-    <group>pci_dss_10.6.1,gpg13_4.12,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.6,tsc_CC7.2,tsc_CC7.3,</group>
+        <group>pci_dss_10.6.1,attack_execution,</group>
   </rule>
 
   <!-- Script execution monitoring -->

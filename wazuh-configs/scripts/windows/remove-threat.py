@@ -86,12 +86,17 @@ def write_log(ar_name, msg, level="INFO"):
         print(f"Could not write to log file {LOG_FILE}: {e}")
 
 # Validates and parses the JSON alert sent from the Wazuh manager via stdin
-def validate_input():
+def validate_input(alert_file=None):
+    """Validates and parses JSON alert from file or stdin"""
     try:
         input_str = ""
-        for line in sys.stdin:
-            input_str = line
-            break
+        if alert_file:
+            with open(alert_file, 'r') as f:
+                input_str = f.read()
+        else:
+            for line in sys.stdin:
+                input_str = line
+                break
         data = json.loads(input_str)
     except (ValueError, json.JSONDecodeError) as e:
         write_log(sys.argv[0], f"Failed to decode JSON from stdin: {e}", "ERROR")
@@ -311,12 +316,37 @@ def enable_powershell_logging():
         return False
 
 # Check if file path is in safe directories with enhanced security
-def is_safe_path(file_path):
+def is_safe_path(path_to_check):
     try:
-        abs_path = os.path.abspath(file_path)
+        abs_path = os.path.abspath(path_to_check)
         
         # Block symbolic links
         if os.path.islink(abs_path):
+            write_log(sys.argv[0], f"Blocked symlink: {path_to_check}", "WARNING")
+            return False
+        
+        # Verify file ownership and permissions
+        if not verify_file_ownership(abs_path):
+            write_log(sys.argv[0], f"File ownership/permissions check failed: {path_to_check}", "WARNING")
+            return False
+        
+        # Check if path is in safe directories
+        is_safe = any(abs_path.startswith(os.path.abspath(d)) for d in SAFE_DIRS)
+        
+        if not is_safe:
+            write_log(sys.argv[0], f"Blocked unsafe path: {path_to_check}", "WARNING")
+            return False
+            
+        return True
+    except Exception as e:
+        write_log(sys.argv[0], f"Path safety check error: {e}", "ERROR")
+        return False
+    try:
+        abs_path = os.path.abspath(path_to_check)
+        
+        # Block symbolic links
+        if os.path.islink(abs_path):
+            write_log(sys.argv[0], f"Blocked symlink: {path_to_check}", "WARNING")
             write_log(sys.argv[0], f"Blocked symlink: {file_path}", "WARNING")
             return False
         
@@ -439,11 +469,20 @@ def main():
         enable_powershell_logging()
     
     dry_run = '--dry-run' in sys.argv
+    alert_file = None
+    if '--alert-file' in sys.argv:
+        try:
+            alert_file_index = sys.argv.index('--alert-file') + 1
+            if alert_file_index < len(sys.argv):
+                alert_file = sys.argv[alert_file_index]
+        except (ValueError, IndexError):
+            pass
+
     if dry_run:
         write_log(sys.argv[0], "Dry run mode enabled")
     
     # Validate input
-    msg = validate_input()
+    msg = validate_input(alert_file)
     if msg.command < 0:
         sys.exit(OS_INVALID)
 
@@ -458,8 +497,11 @@ def main():
             write_log(sys.argv[0], "Rule ID missing", "ERROR")
             sys.exit(OS_INVALID)
 
-        # Check with manager
-        action = send_keys_and_check([rule_id])
+        # Check with manager (skip in dry-run mode for testing)
+        action = CONTINUE_COMMAND
+        if not dry_run:
+            action = send_keys_and_check([rule_id])
+
         if action != CONTINUE_COMMAND:
             if action == ABORT_COMMAND:
                 write_log(sys.argv[0], "Aborted by manager")

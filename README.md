@@ -1,149 +1,194 @@
-# Cloud-X Security - Advanced Wazuh Agent Integration
 
-This package provides enterprise-grade threat response capabilities for Wazuh agents with advanced security features.
 
-## Features
+<p align="center">
+  <img src="./documentation/cloud-x logo.png" alt="Cloud-X Security Logo" width="200"/>
+</p>
 
-### 🛡️ Advanced Threat Response
-- **Digital Signature Verification**: Validates executable signatures before quarantine
-- **File Type Verification**: Uses magic bytes, not just extensions
-- **Process Termination**: Automatically kills malicious processes
-- **Enhanced Quarantine**: Timestamped quarantine with metadata tracking
-- **Rollback Capability**: Complete audit trail for file restoration
+# Cloud-X Security Wazuh Agent Installer
 
-### 🔍 Security Hardening
-- **Symlink Attack Prevention**: Blocks symbolic link exploitation
-- **Path Traversal Protection**: Validates file paths against safe directories
-- **File Ownership Verification**: Checks permissions and ownership
-- **Cross-Platform Support**: Windows and Linux compatibility
+Enterprise-grade standalone Wazuh agent installer and uninstaller with enhanced MSI service management, smart IP configuration, and robust error handling.
 
-### 📊 PowerShell Monitoring
-- **Script Block Logging**: Comprehensive PowerShell activity monitoring
-- **Malicious Command Detection**: Real-time detection of suspicious PowerShell usage
-- **Obfuscation Detection**: Identifies encoded and obfuscated commands
-- **In-Memory Execution Detection**: Catches fileless attack techniques
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://github.com/PowerShell/PowerShell)
+[![Windows](https://img.shields.io/badge/Windows-10%2B-green.svg)](https://www.microsoft.com/windows)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-3.1--GitHub-orange.svg)](CHANGELOG.md)
 
-## Installation
+## 📋 Table of Contents
 
-### Automatic Setup
-Run the post-installation script after installing your Wazuh agent:
+- [Features](#-features)
+- [Prerequisites](#-prerequisites)
+- [How to Run](#-how-to-run)
+- [Configuration](#-configuration)
+- [Uninstaller](#-uninstaller)
+- [Troubleshooting](#-troubleshooting)
+- [Repository Structure](#-repository-structure)
+
+## 🚀 Features
+
+### 🔒 **Secure by Design**
+- **SHA256 Hash Verification** - Verifies the integrity of the downloaded Wazuh agent installer.
+- **HTTPS Enforcement** - Ensures secure communications by using TLS 1.2 for all downloads.
+- **Administrator Enforcement** - Scripts require elevated privileges to run, ensuring system-level changes are authorized.
+- **Audit Trail Generation** - Complete PowerShell transcript logging captures all actions for security and troubleshooting.
+
+### ⚙️ **Standalone Architecture**
+- **Self-Contained Modules** - Standalone PowerShell modules with all dependencies included
+- **Enhanced MSI Management** - Automatic Windows Installer service restart when busy or hanging
+- **Smart IP Configuration** - Personal group agents automatically use internal network IP (192.168.100.37)
+- **Parameter-driven** - All key settings can be passed as command-line arguments
+- **Robust Error Recovery** - Comprehensive retry logic with detailed MSI log analysis
+
+### 📈 **Robust Functionality**
+- **Pre-flight Checks** - Verifies system compatibility (e.g., disk space) before starting.
+- **Automated Cleanup** - Removes downloaded setup files after a successful installation.
+- **Color-Coded Logging** - Provides clear, real-time feedback on the script's progress.
+- **Comprehensive Uninstaller** - A dedicated, modular script for removing all traces of the Wazuh agent.
+
+### 🛡️ **Automated Threat Response**
+- **Automatic Deployment** - The secure `remove-threat.py` active response script is automatically deployed to the agent during installation.
+- **Enhanced Security** - The script includes critical safety features, such as a whitelist of safe directories for file removal and a `--dry-run` mode for safe testing.
+- **Robust Error Handling** - Prevents crashes from malformed alerts and provides detailed logging.
+
+## 🔧 Prerequisites
+
+- **Operating System**: Windows 10 or Windows Server 2016+
+- **PowerShell Version**: PowerShell 5.1 or higher
+- **Permissions**: You must run scripts from an **elevated (Administrator)** PowerShell session.
+- **Network**: Internet connectivity to download the Wazuh agent installer and connectivity to the Wazuh Manager IP.
+- **Disk Space**: Minimum 500MB of free disk space.
+
+## ⚡ Quick Start
+
+Run the following command in an **elevated (Administrator)** PowerShell session to download and use the standalone installer module:
 
 ```powershell
-# Run as Administrator
-.\post-install-setup.ps1
+# Download and import the standalone installer module
+$params = @{
+    ipAddress  = '192.168.1.100'
+    agentName  = 'WIN-AGENT-01'
+    groupLabel = 'windows_servers'
+}
+
+# Method 1: Direct standalone module download and import
+$moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityInstaller-Standalone.psm1"
+$moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
+$moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Encoding UTF8
+Import-Module "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Force
+Install-WazuhAgent @params
 ```
 
-### Manual Installation
+### Alternative Installation Methods
 
-1. **Copy Scripts**:
-   ```bash
-   cp wazuh-configs/scripts/remove-threat.py /var/ossec/active-response/bin/
-   # or on Windows:
-   copy wazuh-configs\scripts\remove-threat.py "C:\Program Files (x86)\ossec-agent\active-response\bin\"
-   ```
-
-2. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure Wazuh Manager**:
-   Add the following to your `ossec.conf`:
-
-   ```xml
-   <command>
-     <name>remove-threat</name>
-     <executable>remove-threat.py</executable>
-     <timeout_allowed>yes</timeout_allowed>
-   </command>
-
-   <active-response>
-     <command>remove-threat</command>
-     <location>local</location>
-     <rules_id>100543,100546,100547</rules_id>
-     <timeout>60</timeout>
-   </active-response>
-   ```
-
-## Configuration
-
-### Safe Directories
-The script only operates on files within predefined safe directories:
-
-**Windows**:
-- `%USERPROFILE%\Downloads`
-- `%TEMP%`
-- `%PUBLIC%\Downloads`
-
-**Linux**:
-- `~/Downloads`
-- `/tmp`
-- `/var/tmp`
-
-### Quarantine Location
-- **Windows**: `%TEMP%\wazuh_quarantine`
-- **Linux**: `/tmp/wazuh_quarantine`
-
-## Usage
-
-### Testing
-Use dry-run mode to test without making changes:
-```bash
-python remove-threat.py --dry-run
+```powershell
+# Method 2: Clone repository and import locally
+git clone https://github.com/MAPLEIZER/Cloud-X-security-agent.git
+Import-Module ".\Cloud-X-security-agent\wazuh-configs\scripts\windows\CloudXSecurityInstaller-Standalone.psm1" -Force
+Install-WazuhAgent @params
 ```
 
-### Monitoring
-Check logs at:
-- **Windows**: `C:\Program Files (x86)\ossec-agent\active-response\active-responses.log`
-- **Linux**: `/var/ossec/logs/active-responses.log`
+## ⚙️ Configuration
 
-## Rule IDs
+This repository is designed to be a centralized location for managing your Wazuh agent configurations.
 
-The system responds to these Wazuh rule IDs:
-- **100543**: Malicious PowerShell commands
-- **100546**: PowerShell obfuscation detection
-- **100547**: In-memory download and execution
+### **Agent Configuration (`/agents`)**
 
-## Security Features
+The `agents` directory contains templates for `ossec.conf`. You can define default configurations and create specific overrides for different operating systems or server roles.
 
-### Digital Signature Verification
-Automatically verifies digital signatures on Windows executables using PowerShell's `Get-AuthenticodeSignature`.
+- `agents/ossec.conf`: Default configuration for all agents.
+- `agents/windows-agents/ossec.conf`: Specific overrides for Windows agents.
+- `agents/linux-agents/ossec.conf`: Specific overrides for Linux agents.
+- `agents/custom-groups/`: Define configurations for specific Wazuh groups (e.g., web servers, database servers).
 
-### File Type Detection
-Uses magic bytes to verify actual file types:
-- PE executables (`MZ` header)
-- ELF executables (`\x7fELF` header)
-- Mach-O executables
-- ZIP/JAR archives
+### **Installer Parameters**
 
-### Process Management
-- Identifies running processes using the malicious file
-- Gracefully terminates processes before quarantine
-- Force-kills processes if graceful termination fails
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `ipAddress` | String | Yes* | IP address of your Wazuh manager. |
+| `agentName` | String | Yes* | A unique name for the new agent. |
+| `groupLabel` | String | Yes* | The Wazuh group to assign the agent to. |
+| `ConfigFile` | String | Yes* | Path to your JSON configuration file. |
+| `Uninstall` | Switch | Yes* | Runs the uninstaller instead of the installer. |
+| `WAZUH_VERSION` | String | No | The Wazuh agent version to install. Defaults to `4.7.0-1`. |
+| `LogPath` | String | No | Custom file path for the transcript log. |
+| `SKIP_HASH_CHECK` | Switch | No | Skips SHA256 hash verification. **Not recommended.** |
+| `KeepLogs` | Switch | No | Used with `-Uninstall` to preserve log directories. |
 
-### Metadata Tracking
-Each quarantined file includes a `.metadata.json` file with:
-- Original file path
-- SHA256 hash
-- File type information
-- Timestamp
-- Terminated process IDs
+*Either `ipAddress`/`agentName`/`groupLabel`, `ConfigFile`, or `Uninstall` parameter set must be used.
 
-## Troubleshooting
+## 🛡️ Uninstaller
 
-### Common Issues
+A powerful, standalone uninstaller module is included to completely and safely remove all traces of the Wazuh agent.
 
-1. **Permission Denied**: Ensure the script runs with appropriate privileges
-2. **Python Dependencies**: Install `psutil` and `pywin32` (Windows only)
-3. **PowerShell Execution Policy**: May need to adjust execution policy on Windows
+### **How to Run the Uninstaller**
 
-### Log Analysis
-Monitor the active response log for detailed execution information including:
-- File quarantine operations
-- Security check results
-- Process termination activities
-- Error conditions
+Download and run the standalone uninstaller module:
 
-## Support
+```powershell
+# Download and import the standalone uninstaller module
+$uninstallerUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityUninstaller-Standalone.psm1"
+$uninstallerContent = (Invoke-WebRequest -Uri $uninstallerUrl -UseBasicParsing).Content
+$uninstallerContent | Out-File -FilePath "$env:TEMP\CloudXSecurityUninstaller-Standalone.psm1" -Encoding UTF8
+Import-Module "$env:TEMP\CloudXSecurityUninstaller-Standalone.psm1" -Force
+Remove-WazuhAgent
+```
 
-For issues or questions regarding Cloud-X Security integration, check the logs and ensure all dependencies are properly installed.
+### **Uninstaller Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `-Force` | Switch | No | Bypasses the confirmation prompt. |
+| `-KeepLogs` | Switch | No | Preserves Wazuh log directories during cleanup. |
+
+## 🚨 Troubleshooting
+
+If the script fails, a `SETUP FAILED` message will appear.
+
+1.  **Check Administrator Privileges**: The most common issue is not running PowerShell as an Administrator.
+2.  **Check Network Connectivity**: Ensure the machine can reach the internet and that the Wazuh manager IP is correct and reachable.
+3.  **Review the Log File**: The script will output the path to a transcript log (e.g., `Cloud-X-Security-Wazuh-Installer-*.log`). This file contains a complete record of the execution and will have detailed error messages.
+4.  **Verify Parameters**: Double-check that all parameters are correct. If using a config file, ensure the path is correct and the JSON is valid.
+
+## 📁 Repository Structure
+
+```
+NixGuard-Wazuh-Installer/
+├── documentation/
+│   ├── Agent-Server-Integration.md
+│   └── Post-Install.md
+├── wazuh-configs/
+│   ├── agents/
+│   │   ├── custom-groups/
+│   │   ├── linux-agents/
+│   │   ├── mac-agents/
+│   │   └── windows-agents/
+│   └── scripts/
+│       ├── custom-groups/
+│       ├── linux/
+│       ├── mac/
+│       └── windows/
+│           └── ... (Windows-specific scripts)
+└── README.md
+```
+
+## 🏗️ Standalone Module Architecture
+
+The installer and uninstaller use self-contained standalone modules for simplified deployment:
+
+### **Standalone Installer Module** (`windows/CloudXSecurityInstaller-Standalone.psm1`)
+- **All-in-One Design**: Contains all dependencies inline - no external module requirements
+- **Enhanced MSI Management**: Automatic service restart when Windows Installer is busy
+- **Smart IP Configuration**: Personal group uses internal IP (192.168.100.37)
+- **Professional UI**: ASCII art banner and color-coded logging
+- **Comprehensive Error Handling**: Detailed MSI log analysis and retry logic
+
+### **Standalone Uninstaller Module** (`windows/CloudXSecurityUninstaller-Standalone.psm1`)
+- **Complete Removal**: Stops services, removes MSI, cleans registry and files
+- **Safety Features**: Confirmation prompts with Force override option
+- **Detailed Logging**: Color-coded progress tracking and summary display
+- **Self-Contained**: No external dependencies required
+
+---
+
+<p align="center">
+  <strong>Made with ❤️ by MAPLEIZER</strong>
+</p>
