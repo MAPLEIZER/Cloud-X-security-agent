@@ -4,34 +4,37 @@ This package provides enterprise-grade threat response capabilities for Wazuh ag
 
 ## Features
 
-### 🛡️ Advanced Threat Response
-- **Digital Signature Verification**: Validates executable signatures before quarantine
-- **File Type Verification**: Uses magic bytes, not just extensions
-- **Process Termination**: Automatically kills malicious processes
-- **Enhanced Quarantine**: Timestamped quarantine with metadata tracking
-- **Rollback Capability**: Complete audit trail for file restoration
+This solution provides a multi-layered security approach, combining automated setup with a powerful active response engine.
 
-### 🔍 Security Hardening
-- **Symlink Attack Prevention**: Blocks symbolic link exploitation
-- **Path Traversal Protection**: Validates file paths against safe directories
-- **File Ownership Verification**: Checks permissions and ownership
-- **Cross-Platform Support**: Windows and Linux compatibility
+### ⚙️ Automated Setup & Hardening
+- **Sysmon Integration**: Deploys Sysmon for unparalleled visibility into system activity.
+- **Advanced Windows Auditing**: Enables granular logging for high-value security events.
+- **PowerShell Monitoring**: Captures script blocks and module loads to detect in-memory threats.
+- **Osquery Integration**: The agent configuration enables osquery for rich, queryable endpoint telemetry.
+- **Security Configuration Assessment (SCA)**: The agent is pre-configured to detect configuration drifts from security benchmarks.
 
-### 📊 PowerShell Monitoring
-- **Script Block Logging**: Comprehensive PowerShell activity monitoring
-- **Malicious Command Detection**: Real-time detection of suspicious PowerShell usage
-- **Obfuscation Detection**: Identifies encoded and obfuscated commands
-- **In-Memory Execution Detection**: Catches fileless attack techniques
+### 🛡️ Advanced Active Response (`remove-threat.py`)
+- **Digital Signature Verification**: Validates executable signatures before taking action.
+- **File Type Verification**: Uses magic bytes, not just extensions, to identify true file types.
+- **Process Termination**: Automatically finds and kills malicious processes associated with a threat.
+- **Enhanced Quarantine**: Moves threats to a safe, timestamped location with full metadata for analysis.
+- **Security Hardening**: Includes built-in protection against symlink and path traversal attacks.
 
 ## Installation
 
 ### Automatic Setup
-Run the post-installation script after installing your Wazuh agent:
+The `post-install-setup.ps1` script automates the configuration of advanced security and monitoring features on Windows agents. Run it as an Administrator after the Wazuh agent installation is complete.
 
 ```powershell
 # Run as Administrator
 .\post-install-setup.ps1
 ```
+
+The script performs the following actions:
+- **Installs Sysmon**: Downloads, installs, and configures Sysmon with the SwiftOnSecurity configuration file for deep process and network monitoring.
+- **Enables Advanced Auditing**: Sets detailed audit policies (`auditpol`) to log critical security events related to file access, process creation, and handle manipulation.
+- **Activates PowerShell Logging**: Modifies the registry to enable PowerShell Module Logging and Script Block Logging, capturing commands and script content to detect fileless attacks.
+- **Sets Up Active Response**: Deploys the necessary active response scripts and ensures Python dependencies are installed.
 
 ### Manual Installation
 

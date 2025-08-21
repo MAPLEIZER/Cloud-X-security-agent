@@ -12,6 +12,7 @@ This document outlines the integration points between the lightweight agent-side
 - **Structured JSON Logging**: Exact format as specified in roadmap
 - **Dry-Run Mode**: Safe testing capability
 - **PowerShell Monitoring**: Script block logging enabled
+- **Osquery Telemetry**: Rich endpoint data collection via osquery integration
 
 ### JSON Log Format (Agent → Server)
 ```json
@@ -172,6 +173,7 @@ All agent logs → SIEM ingestion → Dashboard visualization → Reporting
    - Real-time threat monitoring
    - Agent status overview
    - Quarantine management interface
+   - Osquery telemetry visualization for threat hunting
 
 ### Medium Priority
 1. **Policy Management Interface**

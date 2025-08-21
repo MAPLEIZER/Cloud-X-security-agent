@@ -44,10 +44,15 @@ Enterprise-grade standalone Wazuh agent installer and uninstaller with enhanced 
 - **Color-Coded Logging** - Provides clear, real-time feedback on the script's progress.
 - **Comprehensive Uninstaller** - A dedicated, modular script for removing all traces of the Wazuh agent.
 
-### 🛡️ **Automated Threat Response**
-- **Automatic Deployment** - The secure `remove-threat.py` active response script is automatically deployed to the agent during installation.
-- **Enhanced Security** - The script includes critical safety features, such as a whitelist of safe directories for file removal and a `--dry-run` mode for safe testing.
-- **Robust Error Handling** - Prevents crashes from malformed alerts and provides detailed logging.
+### 🛡️ **Automated Endpoint Hardening & Visibility**
+- **Sysmon Integration**: Automatically installs and configures Sysmon with the SwiftOnSecurity configuration for deep system visibility.
+- **Advanced Auditing**: Enables critical Windows audit policies for detailed tracking of process creation, object access, and logon events.
+- **PowerShell Logging**: Activates script block and module logging to detect malicious in-memory attacks.
+- **Security Configuration Assessment (SCA)**: The agent is pre-configured to run SCA scans, checking for compliance against CIS benchmarks.
+- **Osquery Integration**: Seamlessly integrates osquery for rich host telemetry and advanced threat hunting.
+
+### 📦 **Advanced Agent Configuration**
+- The default `windows-agents/agent.conf` includes enhanced File Integrity Monitoring (FIM) with `whodata`, noise-reducing ignores, hardened active response timeouts, and an offline agent buffer.
 
 ## 🔧 Prerequisites
 
@@ -75,6 +80,15 @@ $moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
 $moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Encoding UTF8
 Import-Module "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Force
 Install-WazuhAgent @params
+
+# Step 2: Run the Post-Install Hardening Script
+# This script enables advanced features like Sysmon, enhanced auditing, and PowerShell logging.
+# Note: If you cloned the repo, adjust the path accordingly.
+$postInstallUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/post-install-setup.ps1"
+$postInstallContent = (Invoke-WebRequest -Uri $postInstallUrl -UseBasicParsing).Content
+$postInstallPath = "$env:TEMP\post-install-setup.ps1"
+$postInstallContent | Out-File -FilePath $postInstallPath -Encoding UTF8
+& $postInstallPath
 ```
 
 ### Alternative Installation Methods

@@ -67,7 +67,55 @@ foreach ($package in $pythonPackages) {
     }
 }
 
-Write-Host "[3/6] Enabling PowerShell Script Block Logging..." -ForegroundColor Yellow
+Write-Host "[3/8] Installing and Configuring Sysmon..." -ForegroundColor Yellow
+
+# Download Sysmon and its configuration
+$sysmonUrl = "https://download.sysinternals.com/files/Sysmon.zip"
+$sysmonZip = "$env:TEMP\Sysmon.zip"
+$sysmonDir = "$env:TEMP\Sysmon"
+$sysmonConfigUrl = "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml"
+$sysmonConfigFile = "$env:TEMP\sysmonconfig.xml"
+
+try {
+    Write-Host "  Downloading Sysmon..." -ForegroundColor Gray
+    Invoke-WebRequest -Uri $sysmonUrl -OutFile $sysmonZip -UseBasicParsing
+    Expand-Archive -Path $sysmonZip -DestinationPath $sysmonDir -Force
+    Write-Host "  ✓ Sysmon downloaded and extracted" -ForegroundColor Green
+
+    Write-Host "  Downloading SwiftOnSecurity Sysmon configuration..." -ForegroundColor Gray
+    Invoke-WebRequest -Uri $sysmonConfigUrl -OutFile $sysmonConfigFile -UseBasicParsing
+    Write-Host "  ✓ Sysmon configuration downloaded" -ForegroundColor Green
+
+    # Install Sysmon
+    if (Test-Path "$sysmonDir\Sysmon64.exe") {
+        Write-Host "  Installing Sysmon..." -ForegroundColor Gray
+        & "$sysmonDir\Sysmon64.exe" -accepteula -i $sysmonConfigFile
+        Write-Host "  ✓ Sysmon installed successfully" -ForegroundColor Green
+    } elseif (Test-Path "$sysmonDir\Sysmon.exe") {
+        Write-Host "  Installing Sysmon (32-bit)..." -ForegroundColor Gray
+        & "$sysmonDir\Sysmon.exe" -accepteula -i $sysmonConfigFile
+        Write-Host "  ✓ Sysmon installed successfully" -ForegroundColor Green
+    } else {
+        Write-Warning "  ⚠ Sysmon executable not found. Skipping installation."
+    }
+} catch {
+    Write-Warning "  ⚠ Failed to download or install Sysmon: $($_.Exception.Message)"
+}
+
+Write-Host "[4/8] Enabling Advanced Windows Auditing..." -ForegroundColor Yellow
+try {
+    auditpol /set /category:"Object Access" /success:enable /failure:enable
+    auditpol /set /subcategory:"File System" /success:enable /failure:enable
+    auditpol /set /subcategory:"Handle Manipulation" /success:enable /failure:enable
+    auditpol /set /subcategory:"Filtering Platform Connection" /success:enable /failure:enable
+    auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
+    auditpol /set /subcategory:"Logon" /success:enable /failure:enable
+    Write-Host "  ✓ Advanced Windows auditing enabled" -ForegroundColor Green
+} catch {
+    Write-Warning "  ⚠ Failed to enable advanced auditing: $($_.Exception.Message)"
+}
+
+Write-Host "[5/8] Enabling PowerShell Script Block Logging..." -ForegroundColor Yellow
 
 # Enable PowerShell logging (integrated from Powershell-log-enable.ps1)
 try {
@@ -91,7 +139,7 @@ try {
     Write-Warning "  ⚠ Failed to enable PowerShell logging: $($_.Exception.Message)"
 }
 
-Write-Host "[4/6] Configuring Wazuh rules..." -ForegroundColor Yellow
+Write-Host "[6/8] Configuring Wazuh rules..." -ForegroundColor Yellow
 
 # Create custom rules directory
 $rulesDir = Join-Path $WazuhPath "ruleset\rules"
@@ -108,7 +156,7 @@ try {
 }
 Write-Host "  ✓ PowerShell monitoring rules installed" -ForegroundColor Green
 
-Write-Host "[5/6] Configuring active response..." -ForegroundColor Yellow
+Write-Host "[7/8] Configuring active response..." -ForegroundColor Yellow
 
 # Create active response configuration
 $activeResponseConfig = @"
@@ -133,7 +181,7 @@ $activeResponseFile = Join-Path $configDir "cloudx_active_response.conf"
 $activeResponseConfig | Out-File -FilePath $activeResponseFile -Encoding UTF8
 Write-Host "  ✓ Active response configuration created" -ForegroundColor Green
 
-Write-Host "[6/7] Configuring Wazuh agent connection..." -ForegroundColor Yellow
+Write-Host "[8/8] Configuring Wazuh agent connection..." -ForegroundColor Yellow
 
 # Configure Wazuh agent with manager address and dynamic agent name
 $ossecConf = Join-Path $WazuhPath "ossec.conf"
