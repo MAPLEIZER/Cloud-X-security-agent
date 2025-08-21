@@ -92,7 +92,7 @@ try {
         & "$sysmonDir\Sysmon64.exe" -accepteula -i $sysmonConfigFile
         Write-Host "  ✓ Sysmon installed successfully" -ForegroundColor Green
     } elseif (Test-Path "$sysmonDir\Sysmon.exe") {
-        Write-Host "  Installing Sysmon (32-bit)..." -ForegroundColor Gray
+        Write-Host '  Installing Sysmon (32-bit)...' -ForegroundColor Gray
         & "$sysmonDir\Sysmon.exe" -accepteula -i $sysmonConfigFile
         Write-Host "  ✓ Sysmon installed successfully" -ForegroundColor Green
     } else {
@@ -175,7 +175,7 @@ $activeResponseConfig = @"
 </active-response>
 "@
 
-$configDir = Join-Path $WazuhPath "etc"
+$configDir = Join-Path $WazuhPath, "etc"
 New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 $activeResponseFile = Join-Path $configDir "cloudx_active_response.conf"
 $activeResponseConfig | Out-File -FilePath $activeResponseFile -Encoding UTF8
