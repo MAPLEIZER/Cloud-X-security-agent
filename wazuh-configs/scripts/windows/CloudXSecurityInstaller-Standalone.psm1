@@ -468,11 +468,13 @@ function Invoke-PostInstallSetup {
     Start-Step "Running Post-Installation Setup"
     
     $postInstallScriptUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/post-install-setup.ps1"
+    $cacheBuster = (Get-Date).Ticks
+    $urlWithCacheBuster = "$($postInstallScriptUrl)?cache=$($cacheBuster)"
     $tempScriptPath = Join-Path $env:TEMP "post-install-setup.ps1"
     
     try {
         Write-Log "Downloading post-install setup script..." -Level "INFO"
-        Get-FileWithRetry -Url $postInstallScriptUrl -OutputPath $tempScriptPath
+        Get-FileWithRetry -Url $urlWithCacheBuster -OutputPath $tempScriptPath
         
         Write-Log "Executing post-install setup script..." -Level "INFO"
         $ossecAgentPath = if ([IntPtr]::Size -eq 8) { "${env:ProgramFiles(x86)}\ossec-agent" } else { "$env:ProgramFiles\ossec-agent" }
