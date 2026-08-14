@@ -1,208 +1,60 @@
+# Cloud-X Security Agent — Legacy Installer & Policy Repository
 
+> **Status: legacy migration source.** Active Cloud-X product development has moved to [`MAPLEIZER/Cloud-X-MVP`](https://github.com/MAPLEIZER/Cloud-X-MVP).
 
-<p align="center">
-  <img src="./documentation/cloud-x logo.png" alt="Cloud-X Security Logo" width="200"/>
-</p>
+This repository preserves the earlier Windows/Linux Wazuh installer, endpoint configuration and active-response work that informed the current Cloud-X packaging layer. It is retained for provenance and migration review; it is **not the supported installation channel** for current Cloud-X builds.
 
-# Cloud-X Security Wazuh Agent Installer
+## Do not install from mutable `main`
 
-Enterprise-grade standalone Wazuh agent installer and uninstaller with enhanced MSI service management, smart IP configuration, and robust error handling.
+Historical versions of this README used commands that downloaded PowerShell directly from the repository's mutable `main` branch and executed it with Administrator privileges. That is no longer an approved deployment pattern.
 
-[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://github.com/PowerShell/PowerShell)
-[![Windows](https://img.shields.io/badge/Windows-10%2B-green.svg)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-3.1--GitHub-orange.svg)](CHANGELOG.md)
+For future Cloud-X releases, endpoint bootstrap artifacts are intended to be:
 
-## 📋 Table of Contents
+- immutable and versioned;
+- signed/verified where the platform supports it;
+- tied to an explicit Wazuh compatibility manifest;
+- suitable for unattended deployment through existing RMM/MDM/GPO/configuration-management tools;
+- provisioned with short-lived enrolment material rather than long-lived administrator credentials.
 
-- [Features](#-features)
-- [Prerequisites](#-prerequisites)
-- [How to Run](#-how-to-run)
-- [Configuration](#-configuration)
-- [Uninstaller](#-uninstaller)
-- [Troubleshooting](#-troubleshooting)
-- [Repository Structure](#-repository-structure)
+Until the canonical project publishes a supported release artifact, treat the scripts in this repository as historical development material only.
 
-## 🚀 Features
+## Relationship to the current project
 
-### 🔒 **Secure by Design**
-- **SHA256 Hash Verification** - Verifies the integrity of the downloaded Wazuh agent installer.
-- **HTTPS Enforcement** - Ensures secure communications by using TLS 1.2 for all downloads.
-- **Administrator Enforcement** - Scripts require elevated privileges to run, ensuring system-level changes are authorized.
-- **Audit Trail Generation** - Complete PowerShell transcript logging captures all actions for security and troubleshooting.
+| Repository | Role |
+|---|---|
+| [`Cloud-X-MVP`](https://github.com/MAPLEIZER/Cloud-X-MVP) | **Canonical Cloud-X product repository** |
+| `Cloud-X-security-agent` | Legacy installer/configuration source and provenance |
+| [`Cloud-X-Dashboard`](https://github.com/MAPLEIZER/Cloud-X-Dashboard) | Legacy dashboard/UI snapshot |
 
-### ⚙️ **Standalone Architecture**
-- **Self-Contained Modules** - Standalone PowerShell modules with all dependencies included
-- **Enhanced MSI Management** - Automatic Windows Installer service restart when busy or hanging
-- **Smart IP Configuration** - Personal group agents automatically use internal network IP (192.168.100.37)
-- **Parameter-driven** - All key settings can be passed as command-line arguments
-- **Robust Error Recovery** - Comprehensive retry logic with detailed MSI log analysis
+The hardened installer and active-response baseline now lives in the canonical repository. Older executable scripts here should not be copied back merely because they contain additional code; any migration requires a security review and a clear product need.
 
-### 📈 **Robust Functionality**
-- **Pre-flight Checks** - Verifies system compatibility (e.g., disk space) before starting.
-- **Automated Cleanup** - Removes downloaded setup files after a successful installation.
-- **Color-Coded Logging** - Provides clear, real-time feedback on the script's progress.
-- **Comprehensive Uninstaller** - A dedicated, modular script for removing all traces of the Wazuh agent.
+## What remains useful here
 
-### 🛡️ **Automated Endpoint Hardening & Visibility**
-- **Sysmon Integration**: Automatically installs and configures Sysmon with the SwiftOnSecurity configuration for deep system visibility.
-- **Advanced Auditing**: Enables critical Windows audit policies for detailed tracking of process creation, object access, and logon events.
-- **PowerShell Logging**: Activates script block and module logging to detect malicious in-memory attacks.
-- **Security Configuration Assessment (SCA)**: The agent is pre-configured to run SCA scans, checking for compliance against CIS benchmarks.
-- **Osquery Integration**: Seamlessly integrates osquery for rich host telemetry and advanced threat hunting.
+- historical Windows/Linux deployment approaches;
+- Wazuh endpoint configuration and policy experiments;
+- active-response design history;
+- documentation useful for comparing old and current packaging choices.
 
-### 📦 **Advanced Agent Configuration**
-- The default `windows-agents/agent.conf` includes enhanced File Integrity Monitoring (FIM) with `whodata`, noise-reducing ignores, hardened active response timeouts, and an offline agent buffer.
+The next product direction is **not** a separate proprietary endpoint agent. Cloud-X will initially use the supported upstream Wazuh agent while Cloud-X owns the trusted bootstrap/enrolment, policy abstraction, tenant workflow, findings, remediation and reporting layers.
 
-## 🔧 Prerequisites
+## Canonical roadmap
 
-- **Operating System**: Windows 10 or Windows Server 2016+
-- **PowerShell Version**: PowerShell 5.1 or higher
-- **Permissions**: You must run scripts from an **elevated (Administrator)** PowerShell session.
-- **Network**: Internet connectivity to download the Wazuh agent installer and connectivity to the Wazuh Manager IP.
-- **Disk Space**: Minimum 500MB of free disk space.
+See the current roadmap and architecture in `Cloud-X-MVP`:
 
-## ⚡ Quick Start
+- `docs/ROADMAP.md`
+- `docs/ARCHITECTURE.md`
+- `docs/PHASE0_INVENTORY.md`
+- `docs/research/2026-08-14-smb-msp-soc-product-decision.md`
 
-Run the following command in an **elevated (Administrator)** PowerShell session to download and use the standalone installer module:
+## Licensing and provenance
 
-```powershell
-# Download and import the standalone installer module
-$params = @{
-    ipAddress  = '192.168.1.100'
-    agentName  = 'WIN-AGENT-01'
-    groupLabel = 'windows_servers'
-}
+Cloud-X-authored code in this repository is provided under the [MIT License](LICENSE), unless a file states otherwise. Wazuh and any other third-party components remain under their respective upstream licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-# Method 1: Direct standalone module download and import
-$moduleUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityInstaller-Standalone.psm1"
-$moduleContent = (Invoke-WebRequest -Uri $moduleUrl -UseBasicParsing).Content
-$moduleContent | Out-File -FilePath "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Encoding UTF8
-Import-Module "$env:TEMP\CloudXSecurityInstaller-Standalone.psm1" -Force
-Install-WazuhAgent @params
+## Archive plan
 
-# Step 2: Run the Post-Install Hardening Script
-# This script enables advanced features like Sysmon, enhanced auditing, and PowerShell logging.
-# Note: If you cloned the repo, adjust the path accordingly.
-$postInstallUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/post-install-setup.ps1"
-$postInstallContent = (Invoke-WebRequest -Uri $postInstallUrl -UseBasicParsing).Content
-$postInstallPath = "$env:TEMP\post-install-setup.ps1"
-$postInstallContent | Out-File -FilePath $postInstallPath -Encoding UTF8
-& $postInstallPath
-```
+This repository can be archived after:
 
-### Alternative Installation Methods
-
-```powershell
-# Method 2: Clone repository and import locally
-git clone https://github.com/MAPLEIZER/Cloud-X-security-agent.git
-Import-Module ".\Cloud-X-security-agent\wazuh-configs\scripts\windows\CloudXSecurityInstaller-Standalone.psm1" -Force
-Install-WazuhAgent @params
-```
-
-## ⚙️ Configuration
-
-This repository is designed to be a centralized location for managing your Wazuh agent configurations.
-
-### **Agent Configuration (`/agents`)**
-
-The `agents` directory contains templates for `ossec.conf`. You can define default configurations and create specific overrides for different operating systems or server roles.
-
-- `agents/ossec.conf`: Default configuration for all agents.
-- `agents/windows-agents/ossec.conf`: Specific overrides for Windows agents.
-- `agents/linux-agents/ossec.conf`: Specific overrides for Linux agents.
-- `agents/custom-groups/`: Define configurations for specific Wazuh groups (e.g., web servers, database servers).
-
-### **Installer Parameters**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `ipAddress` | String | Yes* | IP address of your Wazuh manager. |
-| `agentName` | String | Yes* | A unique name for the new agent. |
-| `groupLabel` | String | Yes* | The Wazuh group to assign the agent to. |
-| `ConfigFile` | String | Yes* | Path to your JSON configuration file. |
-| `Uninstall` | Switch | Yes* | Runs the uninstaller instead of the installer. |
-| `WAZUH_VERSION` | String | No | The Wazuh agent version to install. Defaults to `4.7.0-1`. |
-| `LogPath` | String | No | Custom file path for the transcript log. |
-| `SKIP_HASH_CHECK` | Switch | No | Skips SHA256 hash verification. **Not recommended.** |
-| `KeepLogs` | Switch | No | Used with `-Uninstall` to preserve log directories. |
-
-*Either `ipAddress`/`agentName`/`groupLabel`, `ConfigFile`, or `Uninstall` parameter set must be used.
-
-## 🛡️ Uninstaller
-
-A powerful, standalone uninstaller module is included to completely and safely remove all traces of the Wazuh agent.
-
-### **How to Run the Uninstaller**
-
-Download and run the standalone uninstaller module:
-
-```powershell
-# Download and import the standalone uninstaller module
-$uninstallerUrl = "https://raw.githubusercontent.com/MAPLEIZER/Cloud-X-security-agent/main/wazuh-configs/scripts/windows/CloudXSecurityUninstaller-Standalone.psm1"
-$uninstallerContent = (Invoke-WebRequest -Uri $uninstallerUrl -UseBasicParsing).Content
-$uninstallerContent | Out-File -FilePath "$env:TEMP\CloudXSecurityUninstaller-Standalone.psm1" -Encoding UTF8
-Import-Module "$env:TEMP\CloudXSecurityUninstaller-Standalone.psm1" -Force
-Remove-WazuhAgent
-```
-
-### **Uninstaller Parameters**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `-Force` | Switch | No | Bypasses the confirmation prompt. |
-| `-KeepLogs` | Switch | No | Preserves Wazuh log directories during cleanup. |
-
-## 🚨 Troubleshooting
-
-If the script fails, a `SETUP FAILED` message will appear.
-
-1.  **Check Administrator Privileges**: The most common issue is not running PowerShell as an Administrator.
-2.  **Check Network Connectivity**: Ensure the machine can reach the internet and that the Wazuh manager IP is correct and reachable.
-3.  **Review the Log File**: The script will output the path to a transcript log (e.g., `Cloud-X-Security-Wazuh-Installer-*.log`). This file contains a complete record of the execution and will have detailed error messages.
-4.  **Verify Parameters**: Double-check that all parameters are correct. If using a config file, ensure the path is correct and the JSON is valid.
-
-## 📁 Repository Structure
-
-```
-NixGuard-Wazuh-Installer/
-├── documentation/
-│   ├── Agent-Server-Integration.md
-│   └── Post-Install.md
-├── wazuh-configs/
-│   ├── agents/
-│   │   ├── custom-groups/
-│   │   ├── linux-agents/
-│   │   ├── mac-agents/
-│   │   └── windows-agents/
-│   └── scripts/
-│       ├── custom-groups/
-│       ├── linux/
-│       ├── mac/
-│       └── windows/
-│           └── ... (Windows-specific scripts)
-└── README.md
-```
-
-## 🏗️ Standalone Module Architecture
-
-The installer and uninstaller use self-contained standalone modules for simplified deployment:
-
-### **Standalone Installer Module** (`windows/CloudXSecurityInstaller-Standalone.psm1`)
-- **All-in-One Design**: Contains all dependencies inline - no external module requirements
-- **Enhanced MSI Management**: Automatic service restart when Windows Installer is busy
-- **Smart IP Configuration**: Personal group uses internal IP (192.168.100.37)
-- **Professional UI**: ASCII art banner and color-coded logging
-- **Comprehensive Error Handling**: Detailed MSI log analysis and retry logic
-
-### **Standalone Uninstaller Module** (`windows/CloudXSecurityUninstaller-Standalone.psm1`)
-- **Complete Removal**: Stops services, removes MSI, cleans registry and files
-- **Safety Features**: Confirmation prompts with Force override option
-- **Detailed Logging**: Color-coded progress tracking and summary display
-- **Self-Contained**: No external dependencies required
-
----
-
-<p align="center">
-  <strong>Made with ❤️ by MAPLEIZER</strong>
-</p>
+1. all unique useful installer/policy work has been intentionally migrated or rejected;
+2. no deployment process depends on raw files from this repository;
+3. current-tree provenance and security-sensitive artifacts have been reviewed;
+4. the canonical repository has a supported versioned endpoint packaging path.
